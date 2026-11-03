@@ -16,5 +16,7 @@ public @interface Tag {
     ARRAY,
     RECURSION,
     STDLIB,
+    EXPLICIT_FLOW,
+    IMPLICIT_FLOW,
   }
 }
