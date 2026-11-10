@@ -178,11 +178,11 @@
   )
   :"jpamb.cases.Calls.callsAssertFalse!()V" (control
     :coverage (
-      :"jpamb.cases.Calls.callsAssertFalse:()V" (coverage
-        :reachable (0)
-      )
       :"jpamb.cases.Calls.assertFalse:()V" (coverage
         :reachable (0 1 2)
+      )
+      :"jpamb.cases.Calls.callsAssertFalse:()V" (coverage
+        :reachable (0)
       )
     )
     :results ("assertion error")
@@ -211,53 +211,53 @@
   )
   :"jpamb.cases.Calls.callsAssertIf!(false)V" (control
     :coverage (
-      :"jpamb.cases.Calls.callsAssertIf:(Z)V" (coverage
-        :reachable (0 1)
+      :"jpamb.cases.Calls.assertFalse:()V" (coverage
+        :reachable (0 1 2)
       )
       :"jpamb.cases.Calls.assertIf:(Z)V" (coverage
         :reachable (0 1 4)
       )
-      :"jpamb.cases.Calls.assertFalse:()V" (coverage
-        :reachable (0 1 2)
+      :"jpamb.cases.Calls.callsAssertIf:(Z)V" (coverage
+        :reachable (0 1)
       )
     )
     :results ("assertion error")
   )
   :"jpamb.cases.Calls.callsAssertIf!(true)V" (control
     :coverage (
-      :"jpamb.cases.Calls.callsAssertIf:(Z)V" (coverage
-        :reachable (0 1 2)
-      )
       :"jpamb.cases.Calls.assertIf:(Z)V" (coverage
         :reachable (0 1 2 3 5)
       )
       :"jpamb.cases.Calls.assertTrue:()V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Calls.callsAssertIf:(Z)V" (coverage
+        :reachable (0 1 2)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Calls.callsAssertIfWithTrue!()V" (control
     :coverage (
-      :"jpamb.cases.Calls.callsAssertIfWithTrue:()V" (coverage
-        :reachable (0 1 2)
-      )
       :"jpamb.cases.Calls.assertIf:(Z)V" (coverage
         :reachable (0 1 2 3 5)
       )
       :"jpamb.cases.Calls.assertTrue:()V" (coverage
         :reachable (0)
       )
+      :"jpamb.cases.Calls.callsAssertIfWithTrue:()V" (coverage
+        :reachable (0 1 2)
+      )
     )
     :results (ok)
   )
   :"jpamb.cases.Calls.callsAssertTrue!()V" (control
     :coverage (
-      :"jpamb.cases.Calls.callsAssertTrue:()V" (coverage
-        :reachable (0 1)
-      )
       :"jpamb.cases.Calls.assertTrue:()V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Calls.callsAssertTrue:()V" (coverage
+        :reachable (0 1)
       )
     )
     :results (ok)
@@ -291,22 +291,22 @@
   )
   :"jpamb.cases.Clearance.joinStaysConfidential!(1, 2)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.joinStaysConfidential:(II)V" (coverage
-        :reachable (0 1 2 3 4)
-      )
       :"jpamb.cases.Clearance.confidentialChannel:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.joinStaysConfidential:(II)V" (coverage
+        :reachable (0 1 2 3 4)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Clearance.nestedBranches!(-1, 1)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.nestedBranches:(II)V" (coverage
-        :reachable (0 1 2 3 11 12 13)
-      )
       :"jpamb.cases.Clearance.confidentialChannel:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.nestedBranches:(II)V" (coverage
+        :reachable (0 1 2 3 11 12 13)
       )
     )
     :results (ok)
@@ -337,33 +337,33 @@
   )
   :"jpamb.cases.Clearance.partnerToPartnerFeed!(1)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.partnerToPartnerFeed:(I)V" (coverage
-        :reachable (0 1 2)
-      )
       :"jpamb.cases.Clearance.partnerFeed:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.partnerToPartnerFeed:(I)V" (coverage
+        :reachable (0 1 2)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Clearance.secretBranchInLoop!(0, 5)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.secretBranchInLoop:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 19 20 21)
-      )
       :"jpamb.cases.Clearance.confidentialChannel:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.secretBranchInLoop:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 19 20 21)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Clearance.secretBranchInLoop!(3, -1)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.secretBranchInLoop:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 14 15 16 17 18 19 20 21)
-      )
       :"jpamb.cases.Clearance.confidentialChannel:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.secretBranchInLoop:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 14 15 16 17 18 19 20 21)
       )
     )
     :results (ok)
@@ -378,22 +378,22 @@
   )
   :"jpamb.cases.Clearance.sequentialBranches!(-1, -1)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.sequentialBranches:(II)V" (coverage
-        :reachable (0 1 2 3 6 7 8 9 12 13 14)
-      )
       :"jpamb.cases.Clearance.confidentialChannel:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.sequentialBranches:(II)V" (coverage
+        :reachable (0 1 2 3 6 7 8 9 12 13 14)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Clearance.sequentialBranches!(1, 1)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.sequentialBranches:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14)
-      )
       :"jpamb.cases.Clearance.confidentialChannel:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.sequentialBranches:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14)
       )
     )
     :results (ok)
@@ -408,11 +408,11 @@
   )
   :"jpamb.cases.Clearance.trustedCommand!(1, 2)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.trustedCommand:(II)V" (coverage
-        :reachable (0 1 2 3 4)
-      )
       :"jpamb.cases.Clearance.commandSystem:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.trustedCommand:(II)V" (coverage
+        :reachable (0 1 2 3 4)
       )
     )
     :results (ok)
@@ -427,11 +427,11 @@
   )
   :"jpamb.cases.Compartments.explicitDominatesImplicit!(-1, 5)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.explicitDominatesImplicit:(II)V" (coverage
-        :reachable (0 1 2 3 6 7 8)
-      )
       :"jpamb.cases.Compartments.alphaBravoSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.explicitDominatesImplicit:(II)V" (coverage
+        :reachable (0 1 2 3 6 7 8)
       )
     )
     :results (ok)
@@ -446,11 +446,11 @@
   )
   :"jpamb.cases.Compartments.implicitOutsideSink!(-1, 5)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.implicitOutsideSink:(II)V" (coverage
-        :reachable (0 1 2 3 6 7 8)
-      )
       :"jpamb.cases.Compartments.bravoCharlieSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.implicitOutsideSink:(II)V" (coverage
+        :reachable (0 1 2 3 6 7 8)
       )
     )
     :results (ok)
@@ -465,22 +465,22 @@
   )
   :"jpamb.cases.Compartments.implicitWithinSink!(-1, 5)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.implicitWithinSink:(II)V" (coverage
-        :reachable (0 1 2 3 6 7 8)
-      )
       :"jpamb.cases.Compartments.alphaCharlieSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.implicitWithinSink:(II)V" (coverage
+        :reachable (0 1 2 3 6 7 8)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Compartments.implicitWithinSink!(1, 5)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.implicitWithinSink:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8)
-      )
       :"jpamb.cases.Compartments.alphaCharlieSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.implicitWithinSink:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
       )
     )
     :results (ok)
@@ -511,33 +511,33 @@
   )
   :"jpamb.cases.Compartments.joinOfThreeToTop!(1, 2, 3)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.joinOfThreeToTop:(III)V" (coverage
-        :reachable (0 1 2 3 4 5 6)
-      )
       :"jpamb.cases.Compartments.allSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.joinOfThreeToTop:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Compartments.joinOfTwo!(1, 2)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.joinOfTwo:(II)V" (coverage
-        :reachable (0 1 2 3 4)
-      )
       :"jpamb.cases.Compartments.alphaBravoSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.joinOfTwo:(II)V" (coverage
+        :reachable (0 1 2 3 4)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Compartments.loopGuardAddsCompartment!(0, 4)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.loopGuardAddsCompartment:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 16 17 18)
-      )
       :"jpamb.cases.Compartments.alphaCharlieSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.loopGuardAddsCompartment:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 16 17 18)
       )
     )
     :results (ok)
@@ -770,11 +770,11 @@
   )
   :"jpamb.cases.Hospital.trustedAudit!(3)V" (control
     :coverage (
-      :"jpamb.cases.Hospital.trustedAudit:(I)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12)
-      )
       :"jpamb.cases.Hospital.auditLog:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Hospital.trustedAudit:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12)
       )
     )
     :results (ok)
@@ -1090,55 +1090,55 @@
   )
   :"jpamb.cases.InformationFlow.explicitLeak!(4200, 1300)V" (control
     :coverage (
-      :"jpamb.cases.InformationFlow.explicitLeak:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7)
-      )
       :"jpamb.cases.InformationFlow.dashboard:(I)I" (coverage
         :reachable (0 1 2 3)
+      )
+      :"jpamb.cases.InformationFlow.explicitLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7)
       )
     )
     :results ("assertion error")
   )
   :"jpamb.cases.InformationFlow.explicitLeak!(4200, 4900)V" (control
     :coverage (
-      :"jpamb.cases.InformationFlow.explicitLeak:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 11)
-      )
       :"jpamb.cases.InformationFlow.dashboard:(I)I" (coverage
         :reachable (0 1 2 3)
+      )
+      :"jpamb.cases.InformationFlow.explicitLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 11)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.InformationFlow.implicitBranchLeak!(100, 200)V" (control
     :coverage (
-      :"jpamb.cases.InformationFlow.implicitBranchLeak:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 11)
-      )
       :"jpamb.cases.InformationFlow.alertFlag:(I)I" (coverage
         :reachable (0 1 2 3 4 7 8)
+      )
+      :"jpamb.cases.InformationFlow.implicitBranchLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 11)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.InformationFlow.implicitBranchLeak!(6000, 0)V" (control
     :coverage (
-      :"jpamb.cases.InformationFlow.implicitBranchLeak:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7)
-      )
       :"jpamb.cases.InformationFlow.alertFlag:(I)I" (coverage
         :reachable (0 1 2 3 4 5 6 7 8)
+      )
+      :"jpamb.cases.InformationFlow.implicitBranchLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7)
       )
     )
     :results ("assertion error")
   )
   :"jpamb.cases.InformationFlow.implicitBranchLeak!(6000, 7000)V" (control
     :coverage (
-      :"jpamb.cases.InformationFlow.implicitBranchLeak:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 11)
-      )
       :"jpamb.cases.InformationFlow.alertFlag:(I)I" (coverage
         :reachable (0 1 2 3 4 5 6 7 8)
+      )
+      :"jpamb.cases.InformationFlow.implicitBranchLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 11)
       )
     )
     :results (ok)
@@ -1178,33 +1178,33 @@
   )
   :"jpamb.cases.InformationFlow.integrityViolation!(0, false, false)V" (control
     :coverage (
-      :"jpamb.cases.InformationFlow.integrityViolation:(IZZ)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 13)
-      )
       :"jpamb.cases.InformationFlow.auditCounter:(IZ)I" (coverage
         :reachable (0 1 2 3 4 5 6 16 17 22 23)
+      )
+      :"jpamb.cases.InformationFlow.integrityViolation:(IZZ)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 13)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.InformationFlow.integrityViolation!(3, true, false)V" (control
     :coverage (
-      :"jpamb.cases.InformationFlow.integrityViolation:(IZZ)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7)
-      )
       :"jpamb.cases.InformationFlow.auditCounter:(IZ)I" (coverage
         :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23)
+      )
+      :"jpamb.cases.InformationFlow.integrityViolation:(IZZ)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7)
       )
     )
     :results ("assertion error")
   )
   :"jpamb.cases.InformationFlow.integrityViolation!(3, true, true)V" (control
     :coverage (
-      :"jpamb.cases.InformationFlow.integrityViolation:(IZZ)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7)
-      )
       :"jpamb.cases.InformationFlow.auditCounter:(IZ)I" (coverage
         :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23)
+      )
+      :"jpamb.cases.InformationFlow.integrityViolation:(IZZ)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7)
       )
     )
     :results (ok)
@@ -1606,11 +1606,11 @@
   )
   :"jpamb.cases.Calls.callsAssertFalse:()V" (control
     :coverage (
-      :"jpamb.cases.Calls.callsAssertFalse:()V" (coverage
-        :reachable (0)
-      )
       :"jpamb.cases.Calls.assertFalse:()V" (coverage
         :reachable (0 1 2)
+      )
+      :"jpamb.cases.Calls.callsAssertFalse:()V" (coverage
+        :reachable (0)
       )
     )
     :results ("assertion error")
@@ -1628,13 +1628,13 @@
   )
   :"jpamb.cases.Calls.callsAssertIf:(Z)V" (control
     :coverage (
-      :"jpamb.cases.Calls.callsAssertIf:(Z)V" (coverage
+      :"jpamb.cases.Calls.assertFalse:()V" (coverage
         :reachable (0 1 2)
       )
       :"jpamb.cases.Calls.assertIf:(Z)V" (coverage
         :reachable (0 1 2 3 4 5)
       )
-      :"jpamb.cases.Calls.assertFalse:()V" (coverage
+      :"jpamb.cases.Calls.callsAssertIf:(Z)V" (coverage
         :reachable (0 1 2)
       )
       :"jpamb.cases.Calls.assertTrue:()V" (coverage
@@ -1645,25 +1645,25 @@
   )
   :"jpamb.cases.Calls.callsAssertIfWithTrue:()V" (control
     :coverage (
-      :"jpamb.cases.Calls.callsAssertIfWithTrue:()V" (coverage
-        :reachable (0 1 2)
-      )
       :"jpamb.cases.Calls.assertIf:(Z)V" (coverage
         :reachable (0 1 2 3 5)
       )
       :"jpamb.cases.Calls.assertTrue:()V" (coverage
         :reachable (0)
       )
+      :"jpamb.cases.Calls.callsAssertIfWithTrue:()V" (coverage
+        :reachable (0 1 2)
+      )
     )
     :results (ok)
   )
   :"jpamb.cases.Calls.callsAssertTrue:()V" (control
     :coverage (
-      :"jpamb.cases.Calls.callsAssertTrue:()V" (coverage
-        :reachable (0 1)
-      )
       :"jpamb.cases.Calls.assertTrue:()V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Calls.callsAssertTrue:()V" (coverage
+        :reachable (0 1)
       )
     )
     :results (ok)
@@ -1697,22 +1697,22 @@
   )
   :"jpamb.cases.Clearance.joinStaysConfidential:(II)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.joinStaysConfidential:(II)V" (coverage
-        :reachable (0 1 2 3 4)
-      )
       :"jpamb.cases.Clearance.confidentialChannel:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.joinStaysConfidential:(II)V" (coverage
+        :reachable (0 1 2 3 4)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Clearance.nestedBranches:(II)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.nestedBranches:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13)
-      )
       :"jpamb.cases.Clearance.confidentialChannel:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.nestedBranches:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13)
       )
     )
     :results ("assertion error" ok)
@@ -1727,33 +1727,33 @@
   )
   :"jpamb.cases.Clearance.partnerToPartnerFeed:(I)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.partnerToPartnerFeed:(I)V" (coverage
-        :reachable (0 1 2)
-      )
       :"jpamb.cases.Clearance.partnerFeed:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.partnerToPartnerFeed:(I)V" (coverage
+        :reachable (0 1 2)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Clearance.secretBranchInLoop:(II)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.secretBranchInLoop:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21)
-      )
       :"jpamb.cases.Clearance.confidentialChannel:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.secretBranchInLoop:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21)
       )
     )
     :results ("assertion error" ok)
   )
   :"jpamb.cases.Clearance.sequentialBranches:(II)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.sequentialBranches:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14)
-      )
       :"jpamb.cases.Clearance.confidentialChannel:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.sequentialBranches:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14)
       )
     )
     :results (ok)
@@ -1768,11 +1768,11 @@
   )
   :"jpamb.cases.Clearance.trustedCommand:(II)V" (control
     :coverage (
-      :"jpamb.cases.Clearance.trustedCommand:(II)V" (coverage
-        :reachable (0 1 2 3 4)
-      )
       :"jpamb.cases.Clearance.commandSystem:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Clearance.trustedCommand:(II)V" (coverage
+        :reachable (0 1 2 3 4)
       )
     )
     :results (ok)
@@ -1787,33 +1787,33 @@
   )
   :"jpamb.cases.Compartments.explicitDominatesImplicit:(II)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.explicitDominatesImplicit:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8)
-      )
       :"jpamb.cases.Compartments.alphaBravoSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.explicitDominatesImplicit:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
       )
     )
     :results ("assertion error" ok)
   )
   :"jpamb.cases.Compartments.implicitOutsideSink:(II)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.implicitOutsideSink:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8)
-      )
       :"jpamb.cases.Compartments.bravoCharlieSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.implicitOutsideSink:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
       )
     )
     :results ("assertion error" ok)
   )
   :"jpamb.cases.Compartments.implicitWithinSink:(II)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.implicitWithinSink:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8)
-      )
       :"jpamb.cases.Compartments.alphaCharlieSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.implicitWithinSink:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
       )
     )
     :results (ok)
@@ -1844,33 +1844,33 @@
   )
   :"jpamb.cases.Compartments.joinOfThreeToTop:(III)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.joinOfThreeToTop:(III)V" (coverage
-        :reachable (0 1 2 3 4 5 6)
-      )
       :"jpamb.cases.Compartments.allSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.joinOfThreeToTop:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Compartments.joinOfTwo:(II)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.joinOfTwo:(II)V" (coverage
-        :reachable (0 1 2 3 4)
-      )
       :"jpamb.cases.Compartments.alphaBravoSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.joinOfTwo:(II)V" (coverage
+        :reachable (0 1 2 3 4)
       )
     )
     :results (ok)
   )
   :"jpamb.cases.Compartments.loopGuardAddsCompartment:(II)V" (control
     :coverage (
-      :"jpamb.cases.Compartments.loopGuardAddsCompartment:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18)
-      )
       :"jpamb.cases.Compartments.alphaCharlieSink:(I)V" (coverage
         :reachable (0)
+      )
+      :"jpamb.cases.Compartments.loopGuardAddsCompartment:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18)
       )
     )
     :results ("assertion error" ok)
@@ -2202,22 +2202,22 @@
   )
   :"jpamb.cases.InformationFlow.explicitLeak:(II)V" (control
     :coverage (
-      :"jpamb.cases.InformationFlow.explicitLeak:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 11)
-      )
       :"jpamb.cases.InformationFlow.dashboard:(I)I" (coverage
         :reachable (0 1 2 3)
+      )
+      :"jpamb.cases.InformationFlow.explicitLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 11)
       )
     )
     :results ("assertion error" ok)
   )
   :"jpamb.cases.InformationFlow.implicitBranchLeak:(II)V" (control
     :coverage (
-      :"jpamb.cases.InformationFlow.implicitBranchLeak:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 11)
-      )
       :"jpamb.cases.InformationFlow.alertFlag:(I)I" (coverage
         :reachable (0 1 2 3 4 5 6 7 8)
+      )
+      :"jpamb.cases.InformationFlow.implicitBranchLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 11)
       )
     )
     :results ("assertion error" ok)
@@ -2235,11 +2235,11 @@
   )
   :"jpamb.cases.InformationFlow.integrityViolation:(IZZ)V" (control
     :coverage (
-      :"jpamb.cases.InformationFlow.integrityViolation:(IZZ)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 13)
-      )
       :"jpamb.cases.InformationFlow.auditCounter:(IZ)I" (coverage
         :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23)
+      )
+      :"jpamb.cases.InformationFlow.integrityViolation:(IZZ)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 13)
       )
     )
     :results ("assertion error" ok)

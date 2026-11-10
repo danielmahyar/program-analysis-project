@@ -8,6 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 import cli
+import jpamb
 
 analyses = [
     "jpamb-analysis-dummy",
@@ -42,13 +43,20 @@ def test_analyse(solution):
 @pytest.mark.slow
 def test_analyse_report(tmp_path):
     runner = CliRunner()
+
+    solution = "jpamb-analysis-dummy"
+    exe = shutil.which(solution)
+    if exe is None:
+        pytest.skip(f"Could not find {solution} on path")
+
     result = runner.invoke(
         cli.cli,
         [
+            "-vv",
             "analyse",
             "--report",
             (tmp_path / "report.sexp"),
-            "jpamb-analysis-dummy",
+            exe,
         ],
         catch_exceptions=False,
     )
@@ -165,3 +173,76 @@ def test_validate_interpret(format):
     )
 
     assert result.exit_code == 0, result.output
+
+
+@pytest.fixture
+def build_steps(monkeypatch):
+    """Replace the slow steps of `jpamb build` with stubs that record what ran."""
+    ran = []
+    monkeypatch.setattr(cli.DockerRunner, "create", lambda *args, **kwargs: None)
+    monkeypatch.setattr(jpamb.Suite, "build", lambda self, **kw: ran.append("compile"))
+    monkeypatch.setattr(
+        jpamb.Suite, "document", lambda self, **kw: ran.append("document")
+    )
+    monkeypatch.setattr(jpamb.Suite, "test", lambda self, **kw: ran.append("test"))
+    monkeypatch.setattr(
+        jpamb.Suite,
+        "run_benchmark",
+        lambda self, dynamic=None, **kw: ran.append(("benchmark", dynamic)),
+    )
+    return ran
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        ([], ["compile", ("benchmark", None), "document", "test"]),
+        (["--benchmark"], [("benchmark", None)]),
+        (["--benchmark", "jvm"], [("benchmark", None)]),
+        (["--compile", "--benchmark"], ["compile", ("benchmark", None)]),
+        (["--benchmark", "--compile"], ["compile", ("benchmark", None)]),
+        (["--no-benchmark"], ["compile", "document", "test"]),
+    ],
+)
+def test_build_benchmark_on_jvm(build_steps, args, expected):
+    result = CliRunner().invoke(cli.cli, ["build", *args], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    assert build_steps == expected
+
+
+@pytest.mark.slow
+def test_build_benchmark_with_interpreter(build_steps):
+    exe = shutil.which("jpamb-interpreter-dummy")
+    if exe is None:
+        pytest.skip("Could not find jpamb-interpreter-dummy on path")
+
+    result = CliRunner().invoke(
+        cli.cli,
+        ["build", "--benchmark", "jpamb-interpreter-dummy"],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    [(step, interpreter)] = build_steps
+    assert step == "benchmark"
+    assert interpreter.cmd == (exe,)
+
+
+def test_build_benchmark_with_missing_interpreter(build_steps):
+    result = CliRunner().invoke(
+        cli.cli,
+        ["build", "--benchmark", "jpamb-no-such-interpreter"],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 1
+    assert "did not have jpamb-no-such-interpreter installed" in result.output
+    assert build_steps == []
+
+
+def test_build_benchmark_and_no_benchmark(build_steps):
+    result = CliRunner().invoke(cli.cli, ["build", "--benchmark", "--no-benchmark"])
+
+    assert result.exit_code == 2
+    assert build_steps == []
