@@ -71,7 +71,15 @@ def java_div(x: int, y: int) -> int:
 
 
 @given(
-    st.sampled_from([jvm.BinaryOpr.Add, jvm.BinaryOpr.Sub, jvm.BinaryOpr.Mul, jvm.BinaryOpr.Div, jvm.BinaryOpr.Rem]),
+    st.sampled_from(
+        [
+            jvm.BinaryOpr.Add,
+            jvm.BinaryOpr.Sub,
+            jvm.BinaryOpr.Mul,
+            jvm.BinaryOpr.Div,
+            jvm.BinaryOpr.Rem,
+        ]
+    ),
     st.sets(st_stack_ints()),
     st.sets(
         st_stack_ints(),
@@ -109,7 +117,16 @@ def compare(opr, x, y):
 
 
 @given(
-    st.sampled_from([jvm.CmpOpr.Le, jvm.CmpOpr.Lt, jvm.CmpOpr.Ge, jvm.CmpOpr.Gt, jvm.CmpOpr.Eq, jvm.CmpOpr.Ne]),
+    st.sampled_from(
+        [
+            jvm.CmpOpr.Le,
+            jvm.CmpOpr.Lt,
+            jvm.CmpOpr.Ge,
+            jvm.CmpOpr.Gt,
+            jvm.CmpOpr.Eq,
+            jvm.CmpOpr.Ne,
+        ]
+    ),
     st.sets(st_stack_ints()),
     st.sets(
         st_stack_ints(),

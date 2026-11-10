@@ -1,77 +1,62 @@
 #!/usr/bin/env python3
 """
-ISY: Bytecode Annotation Parser & Syntactic Security Checker
+ISY: print the security policy of a case class.
 
-Extracts and validates configurable security lattices (@Lattice) and
-method security annotations (@Sec) from compiled Java bytecode.
-Provides syntactic verification of explicit flows and reports policies
-to the static and dynamic analysis engines.
+Shows the lattices (@Lattice), the product lattice, and the @Sec labels of every
+method, as JPAMB gives them to the analyses: read from the decompiled class in
+target/decompiled, with `suite.security_policy` (see jpamb.security).
+
+Run from the repository root:
+
+    uv run python solutions/syntactic/src/security_parser.py jpamb.cases.Hospital
+    uv run python solutions/syntactic/src/security_parser.py jpamb.cases.Hospital --method process
+    uv run python solutions/syntactic/src/security_parser.py jpamb.cases.Hospital --json
 """
 
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import sys
-from pathlib import Path
 
-# Add project root to path (with fallback if jpamb.__init__ requires runit)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
-
-try:
-    from jpamb.security import BytecodeAnnotationParser, ClassSecurityPolicy
-except ModuleNotFoundError:
-    sys.path.insert(0, str(PROJECT_ROOT / "src" / "jpamb"))
-    from security import BytecodeAnnotationParser, ClassSecurityPolicy  # type: ignore
-
-
-def inspect_class(class_path_or_name: str) -> ClassSecurityPolicy:
-    path = Path(class_path_or_name)
-    if not path.exists():
-        # Try resolving relative to target/classes
-        target_path = PROJECT_ROOT / "target" / "classes" / (class_path_or_name.replace(".", "/") + ".class")
-        if target_path.exists():
-            path = target_path
-        else:
-            raise FileNotFoundError(f"Could not find class file for {class_path_or_name}")
-
-    return BytecodeAnnotationParser.parse_classfile(path)
+import jpamb
+import jvm
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="ISY: Parse security lattices and annotations from Java bytecode."
-    )
-    parser.add_argument(
-        "target",
-        help="Class name (e.g. jpamb.cases.Hospital) or path to .class file",
-    )
-    parser.add_argument(
-        "--method",
-        "-m",
-        help="Optional method name to inspect in detail",
-        default=None,
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output extracted security policy as JSON for static/dynamic engines",
-    )
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(encoding="utf-8")  # ⊥/⊤ on Windows consoles
 
+    parser = argparse.ArgumentParser(
+        description="ISY: print the security lattices and annotations of a case class."
+    )
+    parser.add_argument("target", help="Class name, e.g. jpamb.cases.Hospital")
+    parser.add_argument(
+        "--method", "-m", default=None, help="Only show the method with this name"
+    )
+    parser.add_argument("--json", action="store_true", help="Print the policy as JSON")
     args = parser.parse_args()
 
+    suite, eff = jpamb.setup()
     try:
-        policy = inspect_class(args.target)
-    except Exception as e:
-        print(f"Error parsing bytecode annotations: {e}", file=sys.stderr)
-        sys.exit(1)
+        policy = suite.security_policy(jvm.ClassName(args.target), eff=eff)
+    except FileNotFoundError:
+        sys.exit(f"{args.target} is not decompiled; run `uv run jpamb build` first.")
+    except ValueError as e:
+        sys.exit(f"Invalid security annotations: {e}")
+    if policy is None:
+        sys.exit(f"{args.target} declares no @Lattice.")
+
+    methods = [
+        m
+        for m in policy.methods.values()
+        if args.method is None or m.name == args.method
+    ]
 
     if args.json:
         data = policy.to_dict()
-        if args.method:
-            m = policy.get_method(args.method)
-            data["methods"] = {m.id: m.to_dict()} if m else {}
+        data["methods"] = {m.id: m.to_dict() for m in methods}
         print(json.dumps(data, indent=2))
         return
 
@@ -86,28 +71,23 @@ def main():
         print(f"    Bottom (⊥):   {lat.bot}")
         print(f"    Top (⊤):      {lat.top}")
         print(f"    Default:      {lat.default_level}")
-        print(f"    Edges (Hasse): {', '.join(f'{lo} <= {hi}' for lo, hi in lat.order_edges)}")
+        print(
+            f"    Edges (Hasse): {', '.join(f'{lo} <= {hi}' for lo, hi in lat.order_edges)}"
+        )
 
-    print(f"\n[+] PRODUCT LATTICE (L_C × L_I):")
+    print("\n[+] PRODUCT LATTICE:")
     print(f"  - Bottom (⊥):   {policy.product_lattice.bot}")
     print(f"  - Top (⊤):      {policy.product_lattice.top}")
     print(f"  - Default:      {policy.product_lattice.default_label}")
 
-    if policy.fields:
-        print("\n[+] LABELED STATIC FIELDS:")
-        for fname, flabel in policy.fields.items():
-            print(f"  - {fname}: {flabel}")
-
     print("\n[+] METHODS & ANNOTATIONS (@Sec, @Case, @Tag):")
-    methods_to_show = policy.methods.values()
-    if args.method:
-        methods_to_show = [m for m in methods_to_show if m.name == args.method]
-
-    for m in methods_to_show:
-        print(f"\n  * Method: {m.name} {m.signature}")
+    for m in methods:
+        kind = "case" if m.is_case else "sink" if m.is_sink else "helper"
+        print(f"\n  * Method: {m.name} {m.signature}  [{kind}]")
         print(f"    Static: {m.is_static}")
         if m.param_labels:
-            print("    Parameters (Sources / Sink Clearances):")
+            title = "Input labels (sources)" if m.is_case else "Argument clearances"
+            print(f"    {title}:")
             for idx, plabel in enumerate(m.param_labels):
                 print(f"      [{idx}] {plabel}")
         if m.return_clearance:
@@ -120,8 +100,6 @@ def main():
                 print(f"      {cinp} -> {cout}")
 
     print("\n" + "=" * 70)
-    print(" Annotation parsing completed successfully.")
-    print("=" * 70)
 
 
 if __name__ == "__main__":

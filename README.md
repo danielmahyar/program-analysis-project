@@ -29,6 +29,8 @@ To get started with this repository, follow the following guides:
   are written in Python so to run them check out the [Python](docs/python.md) section.
 - To test a (concrete or abstract) interpreter, take a look at the [Interpret](docs/interpret.md) section.
 - To figure out how to extend the benchmark suite consult the [Extending The Benchmark Suite](docs/extending-jpamb.md) section.
+- For the information-flow cases (`@Lattice` and `@Sec`), how to build them and how an
+  analysis reads their annotations, see [Security Cases](docs/security.md).
 
 ## Supported Languages
 

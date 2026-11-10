@@ -14,11 +14,97 @@ import java.util.*;
  */
 public class BytecodeInstrumenter {
 
+  /** Adds the security monitor to a class, whether or not it declares a lattice. */
   public static byte[] instrument(byte[] classBytes) {
-    ClassReader cr = new ClassReader(classBytes);
-    ClassNode cn = new ClassNode();
-    cr.accept(cn, 0);
+    ClassNode cn = read(classBytes);
+    instrumentSecurity(cn, false);
+    return write(cn);
+  }
 
+  /**
+   * Prepares a case class for running under JPAMB. A class that declares a security lattice
+   * ({@link jpamb.utils.Lattice}) gets the security monitor, so a leak ends in an {@link
+   * AssertionError}. With {@code coverage}, every method also reports the instructions it executes
+   * to {@link Coverage}. A class that needs neither is returned unchanged.
+   */
+  public static byte[] transform(byte[] classBytes, boolean coverage) {
+    ClassNode cn = read(classBytes);
+    boolean security = declaresLattice(cn);
+    if (!security && !coverage) {
+      return classBytes;
+    }
+    if (security) {
+      instrumentSecurity(cn, coverage);
+    } else {
+      for (MethodNode mn : cn.methods) {
+        if (hasCode(mn)) {
+          addCoverageProbes(cn, mn);
+        }
+      }
+    }
+    return write(cn);
+  }
+
+  private static ClassNode read(byte[] classBytes) {
+    ClassNode cn = new ClassNode();
+    new ClassReader(classBytes).accept(cn, 0);
+    return cn;
+  }
+
+  private static byte[] write(ClassNode cn) {
+    ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+    cn.accept(cw);
+    return cw.toByteArray();
+  }
+
+  private static boolean declaresLattice(ClassNode cn) {
+    if (cn.visibleAnnotations == null) return false;
+    for (AnnotationNode an : cn.visibleAnnotations) {
+      if (an.desc.equals("Ljpamb/utils/Lattice;") || an.desc.equals("Ljpamb/utils/Lattices;")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Methods with code that a case can execute (constructors and static initializers excluded). */
+  private static boolean hasCode(MethodNode mn) {
+    return (mn.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0 && !mn.name.startsWith("<");
+  }
+
+  private static String coverageKey(ClassNode cn, MethodNode mn) {
+    return cn.name.replace('/', '.') + "." + mn.name + ":" + mn.desc;
+  }
+
+  private static void emitProbe(InsnList out, String key, int index, AbstractInsnNode insn) {
+    boolean createsAssertionError =
+        insn.getOpcode() == Opcodes.NEW
+            && ((TypeInsnNode) insn).desc.equals("java/lang/AssertionError");
+    out.add(new LdcInsnNode(key));
+    out.add(new LdcInsnNode(index));
+    out.add(new MethodInsnNode(
+        Opcodes.INVOKESTATIC,
+        "jpamb/utils/Coverage",
+        createsAssertionError ? "hitLast" : "hit",
+        "(Ljava/lang/String;I)V",
+        false));
+  }
+
+  /** Puts a {@link Coverage#hit} probe before every real instruction (labels and frames skipped). */
+  private static void addCoverageProbes(ClassNode cn, MethodNode mn) {
+    String key = coverageKey(cn, mn);
+    InsnList out = new InsnList();
+    int index = 0;
+    for (AbstractInsnNode insn : mn.instructions.toArray()) {
+      if (insn.getOpcode() >= 0) {
+        emitProbe(out, key, index++, insn);
+      }
+      out.add(insn);
+    }
+    mn.instructions = out;
+  }
+
+  private static void instrumentSecurity(ClassNode cn, boolean coverage) {
     // 1. Extract class-level @Lattice annotations
     Map<String, List<String>> latticeLevels = new HashMap<>();
     Map<String, List<String>> latticeOrders = new HashMap<>();
@@ -81,20 +167,19 @@ public class BytecodeInstrumenter {
       }
     }
 
-    // 3. Instrument @Case methods with shadow tracking, ipdom pc-context, and sink checks
+    // 3. Instrument @Case methods with shadow tracking, ipdom pc-context, and sink checks.
+    //    With coverage, the remaining methods (the sinks) only get coverage probes.
     for (MethodNode mn : cn.methods) {
-      if ((mn.access & Opcodes.ACC_ABSTRACT) != 0 || (mn.access & Opcodes.ACC_NATIVE) != 0) {
+      if (!hasCode(mn)) {
         continue;
       }
-      if (mn.name.startsWith("<") || !hasCaseAnnotation(mn)) {
-        continue;
+      String probeKey = coverage ? coverageKey(cn, mn) : null;
+      if (hasCaseAnnotation(mn)) {
+        instrumentMethod(cn, mn, sinkClearances, defaultConf, defaultInteg, probeKey);
+      } else if (coverage) {
+        addCoverageProbes(cn, mn);
       }
-      instrumentMethod(cn, mn, sinkClearances, defaultConf, defaultInteg);
     }
-
-    ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-    cn.accept(cw);
-    return cw.toByteArray();
   }
 
   private static boolean hasCaseAnnotation(MethodNode mn) {
@@ -232,9 +317,11 @@ public class BytecodeInstrumenter {
       MethodNode mn,
       Map<String, Map<Integer, SecurityMonitor.Label>> sinkClearances,
       String defaultConf,
-      String defaultInteg) {
+      String defaultInteg,
+      String probeKey) {
 
     AbstractInsnNode[] origInsns = mn.instructions.toArray();
+    int realIndex = 0;
     int[] ipdom = computeImmediatePostDominators(mn);
 
     // Collect which instruction indices are immediate post-dominators of conditional branches
@@ -305,6 +392,11 @@ public class BytecodeInstrumenter {
               false));
         }
         continue;
+      }
+
+      // Coverage probe first, so an instruction whose sink check fails still counts as reached
+      if (probeKey != null && opcode >= 0) {
+        emitProbe(newInstructions, probeKey, realIndex++, insn);
       }
 
       if (ipdomTargets.contains(i)) {

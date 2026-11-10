@@ -1,8 +1,8 @@
+import operator
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal, Self
-import operator
 
 import jvm
 import jvm.state as jvms
@@ -193,13 +193,13 @@ class SignSet(Abstraction, Lattice):
             return NotImplemented
 
         return SignSet(self.signs & other.signs)
-    
+
     def negate(self, signs: frozenset[Sign]) -> set[Sign]:
         output = set()
         for sign in signs:
             match sign:
                 case 1 | -1:
-                    output.add(sign*-1) 
+                    output.add(sign * -1)
                 case 0:
                     output.add(0)
         return output
@@ -224,8 +224,7 @@ class SignSet(Abstraction, Lattice):
                     output.update(other.signs)
 
                 return (SignSet(output), set())
-            
-            
+
             case jvm.BinaryOpr.Sub:
                 output = set()
 
@@ -233,21 +232,20 @@ class SignSet(Abstraction, Lattice):
                     output.add(1)
                     if 1 in other.signs:
                         output.update([0, -1])
-                
+
                 if -1 in self.signs:
                     output.add(-1)
                     if -1 in other.signs:
                         output.update([0, 1])
-                     
+
                 if 0 in self.signs:
-                    output.update(self.negate(other.signs)) 
-                 
-                return (SignSet(output), set()) 
-            
-            
+                    output.update(self.negate(other.signs))
+
+                return (SignSet(output), set())
+
             case jvm.BinaryOpr.Mul:
                 output = set()
-                
+
                 if 1 in self.signs:
                     if 1 in other.signs:
                         output.add(1)
@@ -255,7 +253,7 @@ class SignSet(Abstraction, Lattice):
                         output.add(-1)
                     if 0 in other.signs:
                         output.add(0)
-                        
+
                 if -1 in self.signs:
                     if 1 in other.signs:
                         output.add(-1)
@@ -263,13 +261,12 @@ class SignSet(Abstraction, Lattice):
                         output.add(1)
                     if 0 in other.signs:
                         output.add(0)
-                        
-                if 0 in self.signs:
-                    if len(other.signs) > 0: # 0 * anything = 0
-                        output.add(0)
-                        
-                return (SignSet(output), set()) 
-            
+
+                if 0 in self.signs and len(other.signs) > 0:  # 0 * anything = 0
+                    output.add(0)
+
+                return (SignSet(output), set())
+
             case jvm.BinaryOpr.Div:
                 output = set()
                 errors = set()
@@ -294,8 +291,8 @@ class SignSet(Abstraction, Lattice):
                             output.add(0)
 
                 return (SignSet(output), errors)
-            
-            case jvm.BinaryOpr.Rem: # (or .Mod, depending on your enum)
+
+            case jvm.BinaryOpr.Rem:  # (or .Mod, depending on your enum)
                 output = set()
                 errors = set()
 
@@ -305,7 +302,7 @@ class SignSet(Abstraction, Lattice):
 
                 # 2. Extract valid denominators
                 valid_denominators = other.signs - {0}
-                
+
                 # If there are no valid denominators, stop here
                 if not valid_denominators:
                     return (SignSet(output), errors)
@@ -322,7 +319,6 @@ class SignSet(Abstraction, Lattice):
 
                 return (SignSet(output), errors)
 
-            
             case _:
                 raise NotImplementedError(f"TODO: {opr}")
 
@@ -330,7 +326,7 @@ class SignSet(Abstraction, Lattice):
         # Map JVM operations to Python's built-in comparison functions
         op_map = {
             jvm.CmpOpr.Le: operator.le,
-            jvm.CmpOpr.Lt: operator.lt, # (Fixed your duplicated Le typo here)
+            jvm.CmpOpr.Lt: operator.lt,  # (Fixed your duplicated Le typo here)
             jvm.CmpOpr.Ge: operator.ge,
             jvm.CmpOpr.Gt: operator.gt,
             jvm.CmpOpr.Eq: operator.eq,
@@ -339,18 +335,17 @@ class SignSet(Abstraction, Lattice):
 
         if opr not in op_map:
             raise NotImplementedError(f"TODO: {opr}")
-            
+
         py_op = op_map[opr]
         cases = set()
 
         for x in self.signs:
             for y in other.signs:
-                
                 if x == y and x != 0:
                     cases.update([True, False])
                 else:
                     cases.add(py_op(x, y))
-                    
+
         return cases
 
 

@@ -2,7 +2,6 @@ import dataclasses
 import json
 import os
 import re
-import shutil
 import sys
 from pathlib import Path
 
@@ -431,7 +430,7 @@ def validate(ctx, kind, report, format):
 )
 @click.option(
     "--benchmark / --no-benchmark",
-    help="test that all cases are correct.",
+    help="trace every case on the JVM and write the benchmark file.",
     default=None,
 )
 @click.pass_obj
@@ -442,39 +441,21 @@ def build(ctx, compile, document, test, benchmark):
         compile = compile is None
         document = document is None
         test = test is None
+        benchmark = benchmark is None
 
     docker = DockerRunner.create(ctx.suite.workdir, ctx.docker_image, eff=ctx.eff)
 
     if compile:
         ctx.suite.build(docker=docker, eff=ctx.eff)
 
+    if benchmark:
+        ctx.suite.run_benchmark(docker=docker, eff=ctx.eff)
+
     if document:
         ctx.suite.document(eff=ctx.eff)
 
     if test:
         ctx.suite.test(docker=docker, eff=ctx.eff)
-
-    if benchmark:
-        tools = ["solution-dynamic-interpreter"]
-        tool_configs = []
-        for tool in tools:
-            tool_bin = shutil.which(tool)
-            if not tool_bin:
-                ctx.eff.warning(f"did not have {tool} installed...")
-                continue
-
-            config = jpamb.interpret.Config.from_cmd(
-                (tool_bin,),
-                experiments=[],
-                max_steps=100,
-                timeout=5.0,
-                eff=ctx.eff,
-                abstract=False,
-            )
-            tool_configs.append(config)
-
-        if tools:
-            ctx.suite.run_benchmark(*tool_configs, eff=ctx.eff)
 
 
 @cli.command()

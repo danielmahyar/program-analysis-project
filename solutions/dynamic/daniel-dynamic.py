@@ -24,9 +24,10 @@ def binary(op, v1: int, v2: int) -> int | str:
         case a:
             raise NotImplementedError(f"Unhandled binary {op!r}")
 
+
 def is_array_ref_null(ref: jvmc.StackReference):
     return ref.value == 0
-    
+
 
 def compare(op, v1: int, v2: int) -> bool:
     match op:
@@ -61,169 +62,172 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             frame.stack.push(dup)
             frame.stack.push(dup)
             frame.pc += 1
-        
+
         case jvm.Goto(target=target):
             frame.pc %= target
-            
+
         case jvm.Store(type=t, index=i):
             if frame.stack.__sizeof__() == 0:
-                raise ValueError(f"There is no int in Operand Stack to store in locals {i}")
+                raise ValueError(
+                    f"There is no int in Operand Stack to store in locals {i}"
+                )
             val = frame.stack.pop()
             frame.locals[i] = val
             frame.pc += 1
-            
+
         case jvm.Cast(from_=f, to_=t):
             match f, t:
                 case jvm.Int(), jvm.Short():
                     v = frame.stack.pop()
                     if not isinstance(v, jvmc.StackInt):
-                        raise ValueError("Must be integer [i2s]")
+                        raise TypeError("Must be integer [i2s]")
                     print(f"Before {v}", file=sys.stderr)
                     # Extract 16 last bits
                     nv = v.value & (0xFFFF)
-                    print(f"After {nv}", file=sys.stderr) 
+                    print(f"After {nv}", file=sys.stderr)
                     frame.stack.push(jvmc.StackInt(nv))
-                
-                case _,_: 
+
+                case _, _:
                     raise NotImplementedError(f"Missing casting from {f} to {t}")
 
             frame.pc += 1
-        
+
         case jvm.NewArray(type=t, dim=d):
             count = frame.stack.pop()
             if not isinstance(count, jvmc.StackInt):
-                raise ValueError("Count is not value")
+                raise TypeError("Count is not value")
 
             arr = [0 for _ in range(count.value)]
             heaparr = jvmc.HeapArray(t, arr)
             ref = state.heap.new(heaparr)
             frame.stack.push(ref)
             frame.pc += 1
-            pass
-        
+
         case jvm.ArrayStore(type=t):
-            value, index, arrayref = frame.stack.pop(), frame.stack.pop(), frame.stack.pop()
+            value, index, arrayref = (
+                frame.stack.pop(),
+                frame.stack.pop(),
+                frame.stack.pop(),
+            )
             if not isinstance(arrayref, jvmc.StackReference):
-                raise ValueError("Reference is not reference")
-            
+                raise TypeError("Reference is not reference")
+
             if is_array_ref_null(arrayref):
                 output = "null pointer"
                 return frame.pc, output
-            
+
             if not isinstance(index, jvmc.StackInt):
-                raise ValueError("Index not an integer")
-            
+                raise TypeError("Index not an integer")
+
             if not isinstance(value, jvmc.StackInt):
-                raise ValueError(f"Value is not a reference {value}")
+                raise TypeError(f"Value is not a reference {value}")
 
             array = state.heap.memory[arrayref.value - 1]
-            if not isinstance(array, jvmc.HeapArray) :
-                raise ValueError("Reference did not point to Array")
-            
+            if not isinstance(array, jvmc.HeapArray):
+                raise TypeError("Reference did not point to Array")
+
             if index.value >= array.values.__len__():
                 output = "out of bounds"
                 return frame.pc, output
-            
+
             array.values[index.value] = value.value
 
-            frame.pc += 1 
-       
+            frame.pc += 1
+
         case jvm.ArrayLength():
             arrayref = frame.stack.pop()
             if not isinstance(arrayref, jvmc.StackReference):
-                raise ValueError("Reference is not reference")
+                raise TypeError("Reference is not reference")
             if is_array_ref_null(arrayref):
                 output = "null pointer"
                 return frame.pc, output
-            
+
             l = state.heap.memory[arrayref.value - 1]
             if not isinstance(l, jvmc.HeapArray):
-                raise ValueError("Expected arary")
+                raise TypeError("Expected arary")
             frame.stack.push(jvmc.StackInt(l.values.__len__()))
             frame.pc += 1
-            
+
         case jvm.ArrayLoad(type=t):
             index, ref = frame.stack.pop(), frame.stack.pop()
             if not isinstance(ref, jvmc.StackReference):
-                raise ValueError("Reference is not reference")
+                raise TypeError("Reference is not reference")
             if not isinstance(index, jvmc.StackInt):
-                raise ValueError("Index not an integer")
-            
+                raise TypeError("Index not an integer")
+
             array = state.heap.memory[ref.value - 1]
-            
+
             if not isinstance(array, jvmc.HeapArray):
-                raise ValueError("Expected arary")
+                raise TypeError("Expected arary")
 
             if index.value >= array.values.__len__():
                 output = "out of bounds"
                 return frame.pc, output
             val = array.values[index.value]
             frame.stack.push(jvmc.StackInt(val))
-            frame.pc += 1 
-        
-        case jvm.InvokeStatic(method=methodid): 
+            frame.pc += 1
+
+        case jvm.InvokeStatic(method=methodid):
             method = bc.getmethod(methodid)
             child = jvmc.Frame.from_method(method)
             # We need to create new frame and push it to the stack, but we also need to pop the arguments from the stack and put them in the new frame's locals
             for i in range(methodid.extension.params.__len__() - 1, -1, -1):
                 arg = frame.stack.pop()
                 child.locals[i] = arg
-                
+
             # Now we make sure to push the new frame to the stack
             state.frames.push(child)
             # This should make sure that the next step will be in the new frame
             frame.pc += 1
-            pass
-        
-        case jvm.Incr(index=i,amount=a):
+
+        case jvm.Incr(index=i, amount=a):
             val = frame.locals.locals[i]
             if not isinstance(val, jvmc.StackInt):
-                raise ValueError("Can not use incremenet on non-integer value")
-            
+                raise TypeError("Can not use incremenet on non-integer value")
+
             frame.locals.locals[i] = jvmc.StackInt(val.value + a)
-            frame.pc += 1 
+            frame.pc += 1
 
         case jvm.Load(type=t, index=i):
-            local_variable = locals[i] 
+            local_variable = locals[i]
             frame.stack.push(local_variable)
             frame.pc += 1
-            pass 
-        
+
         case jvm.If(condition=op, target=target):
             v2, v1 = frame.stack.pop(), frame.stack.pop()
             if not isinstance(v1, jvmc.StackInt) or not isinstance(v2, jvmc.StackInt):
-                raise ValueError(f"Expected int but got {v1} and {v2}")
-            
+                raise TypeError(f"Expected int but got {v1} and {v2}")
+
             if compare(op, v1.value, v2.value):
                 frame.pc %= target
             else:
                 frame.pc += 1
-        
+
         case jvm.Ifz(condition=op, target=target):
             print(f"Condition: {op}, target: {target}", file=sys.stderr)
             cond = frame.stack.pop()
             if not isinstance(cond, jvmc.StackInt):
-                raise ValueError(f"Expected int but got {cond}")
+                raise TypeError(f"Expected int but got {cond}")
             if compare(op, cond.value, 0):
                 frame.pc %= target
             else:
                 frame.pc += 1
-                
+
         case jvm.Push(type=t, value=v):
             print(f"{t} and {v}", file=sys.stderr)
             match t:
                 case jvm.Reference():
                     if not isinstance(v, int):
-                        raise ValueError("null ref not int")
+                        raise TypeError("null ref not int")
 
                     frame.stack.push(jvmc.StackReference(v))
                 case jvm.Int():
                     if not isinstance(v, int):
-                        raise ValueError("Expected int")
+                        raise TypeError("Expected int")
                     frame.stack.push(jvmc.StackInt(v))
                 case jvm.Object(jvm.ClassName("java.lang.String")):
                     if not isinstance(v, str):
-                        raise ValueError("Expected string")
+                        raise TypeError("Expected string")
                     frame.stack.push(state.heap.new(jvmc.HeapString(v)))
             frame.pc += 1
 
@@ -234,9 +238,9 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             argument = frame.stack.pop()
             receiver = frame.stack.pop()
             if not isinstance(receiver, jvmc.StackReference):
-                raise ValueError("String receiver is not a reference")
+                raise TypeError("String receiver is not a reference")
             if not isinstance(argument, jvmc.StackReference):
-                raise ValueError("String argument is not a reference")
+                raise TypeError("String argument is not a reference")
 
             if receiver.value == 0:
                 output = "null pointer"
@@ -257,17 +261,17 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
                         )
                     )
                 frame.pc += 1
-        
+
         case jvm.Negate(type=t):
             # We have to negate the first int in top of stack
             val = frame.stack.pop()
-            
+
             if not isinstance(val, jvmc.StackInt):
-                raise ValueError("The value on top of Op Stack is not an int")
-            
+                raise TypeError("The value on top of Op Stack is not an int")
+
             negated = val.value * (-1)
             frame.stack.push(jvmc.StackInt(negated))
-            frame.pc += 1 
+            frame.pc += 1
 
         case jvm.Binary(type=jvm.Int(), operant=op):
             v2, v1 = frame.stack.pop(), frame.stack.pop()
@@ -391,7 +395,6 @@ def fuzz_input(rand: random.Random, methodid: jvm.AbsMethodID) -> jpamb.case.Inp
                 values = [chr(rand.randint(0, 255)) for _ in range(length)]
                 input.append(jpamb.case.Array(contains=jvm.Char(), values=values))
             case a:
-                
                 raise NotImplementedError(
                     f"Don't know how to create random values for {a}"
                 )

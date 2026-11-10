@@ -20,7 +20,8 @@ import runit
 import jvm
 import jvm.state
 import sexpr
-from jpamb import interpret
+from jpamb import interpret as interpret
+from jpamb import security as security
 from jpamb.analyse import QUERIES as QUERIES
 from jpamb.case import Benchmark, Case, Control, Coverage, Experiment, Input
 from jpamb.report import AnalysisInfo as AnalysisInfo
@@ -61,6 +62,11 @@ class Suite:
     def classfiles_folder(self) -> Path:
         """The folder containing the class files"""
         return self.workdir / "target" / "classes"
+
+    # Java libraries the cases are compiled and run with (ASM, used to instrument
+    # the security cases). Paths are relative to the workdir, as seen in docker.
+    library_classpath = "lib/*"
+    runtime_classpath = "target/classes:lib/*"
 
     def classfiles(self, *, eff: Effect) -> Iterable[Path]:
         yield from self.classfiles_folder.glob("**/*.class")
@@ -114,6 +120,13 @@ class Suite:
         else:
             raise IndexError(f"Could not find {methodid}")
         return method
+
+    def security_policy(
+        self, cn: jvm.ClassName, *, eff: Effect
+    ) -> security.ClassSecurityPolicy | None:
+        """The security policy (@Lattice and @Sec annotations) of a case class,
+        or None if the class declares no lattice."""
+        return security.ClassSecurityPolicy.from_json(self.findclass(cn, eff=eff))
 
     def getmethod(self, methodid: jvm.AbsMethodID, *, eff: Effect) -> jvm.Method:
         """Get the json for a method and covert it to a Method"""
@@ -282,7 +295,16 @@ class Suite:
     def build(self, *, docker: DockerRunner, eff: Effect):
         with eff.context("Compiling"):
             docker.run(
-                ["javac", "-g", "-d", "target/classes"]
+                [
+                    "javac",
+                    "-g",
+                    "--release",
+                    "17",
+                    "-cp",
+                    self.library_classpath,
+                    "-d",
+                    "target/classes",
+                ]
                 + [
                     a.relative_to(self.workdir).as_posix()
                     for a in self.sourcefiles(eff=eff)
@@ -293,7 +315,9 @@ class Suite:
 
         with eff.context("Building Stats"):
             res = docker.run(
-                ["java", "-cp", "target/classes", "jpamb.Runtime"], timeout=60, eff=eff
+                ["java", "-cp", self.runtime_classpath, "jpamb.Runtime"],
+                timeout=60,
+                eff=eff,
             )
             self.case_file.parent.mkdir(exist_ok=True, parents=True)
             self.case_file.write_text("\n".join(sorted(res.splitlines())))
@@ -320,14 +344,12 @@ class Suite:
         with eff.context("Testing"):
             for case in self.cases(eff=eff):
                 with eff.context(f"{case}"):
-                    folder = self.classfiles_folder
-
                     try:
                         res = docker.run(
                             [
                                 "java",
                                 "-cp",
-                                folder.relative_to(self.workdir).as_posix(),
+                                self.runtime_classpath,
                                 "-ea",
                                 "jpamb.Runtime",
                                 case.methodid.encode(),
@@ -344,30 +366,44 @@ class Suite:
                     else:
                         eff.error(f"Incorrect (got {res.strip()}) expected {case}")
 
-    def run_benchmark(self, dynamic: interpret.Config, *, eff: Effect):
+    def run_benchmark(self, *, docker: DockerRunner, max_steps: int = 100, eff: Effect):
+        """Write the benchmark file: the results of every case, and the
+        instructions reached in its first `max_steps` steps, traced on the JVM
+        (`jpamb.Runtime --trace`). An interpreter must cover those instructions."""
         with eff.context("Benchmark"):
+            res = docker.run(
+                [
+                    "java",
+                    "-cp",
+                    self.runtime_classpath,
+                    "-ea",
+                    "jpamb.Runtime",
+                    "--trace",
+                    str(max_steps),
+                ],
+                timeout=600,
+                eff=eff,
+            )
+            traces = {}
+            for line in res.splitlines():
+                trace = json.loads(line)
+                traces[Case.decode(trace["case"]).experiment] = trace
+
             experiments = OrderedDict()
 
             entries = {}
             for case in self.cases(eff=eff):
-                eff.info(f"Running {case.experiment}")
-
-                reachable = set()
-                result = dynamic.run_experiment(case.experiment, eff=eff)
-                if result.response is None:
-                    eff.error(f"No response for {case.experiment}")
+                trace = traces.get(case.experiment)
+                if trace is None:
+                    eff.error(f"No trace for {case.experiment}")
                     continue
-                for step in result.response.steps:
-                    reachable.add(step.pc)
+                if trace["result"] is not None and trace["result"] != case.result:
+                    eff.error(f"Traced {case} but got {trace['result']}")
 
-                methods = {pc.method for pc in reachable}
-
-                coverage = {}
-                for m in methods:
-                    offsets = {pc.offset for pc in reachable if pc.method == m}
-                    coverage[m] = Coverage(
-                        reachable=offsets,
-                    )
+                coverage = {
+                    jvm.AbsMethodID.decode(m): Coverage(reachable=set(offsets))
+                    for m, offsets in trace["coverage"].items()
+                }
 
                 control = Control(coverage=coverage, results={case.result})
                 entries.setdefault(case.experiment.entry, []).append(control)

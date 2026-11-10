@@ -51,7 +51,8 @@ def test_data():
     ]
 
 
-@settings(suppress_health_check=[HealthCheck.data_too_large])
+# Generating nested s-expressions can be slow on a busy machine; that is not a failure.
+@settings(suppress_health_check=[HealthCheck.data_too_large, HealthCheck.too_slow])
 @given(
     st.text(),
     st.lists(st_sexpr()),

@@ -1,18 +1,39 @@
 """
 jpamb.security
 
-Data structures and parsing utilities for configurable security lattices,
-product lattices, and security annotations (@Lattice, @Lattices, @Sec)
-extracted from Java bytecode.
+Security lattices, product lattices and security labels, and the policy a case
+class declares with the annotations `@Lattice`/`@Lattices` (on the class) and
+`@Sec` (on parameters and methods).
+
+The policy is read from the decompiled class (`target/decompiled/...json`), the
+same JSON every analysis already gets from JPAMB, so no Java tools are needed:
+
+    suite, eff = jpamb.setup()
+    policy = suite.security_policy(methodid.classname, eff=eff)
+    if policy is not None:                       # the class declares a lattice
+        method = policy.method(methodid)
+        method.param_labels                      # labels of the inputs (sources)
+        policy.sink(invoked_methodid)            # clearances of a called sink, or None
+        policy.product_lattice.le(label, clearance)
 """
 
 from __future__ import annotations
 
-import re
-import subprocess
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
+
+import jvm
+
+SEC = "jpamb/utils/Sec"
+LATTICE = "jpamb/utils/Lattice"
+LATTICES = "jpamb/utils/Lattices"
+CASE = "jpamb/utils/Case"
+CASES = "jpamb/utils/Cases"
+TAG = "jpamb/utils/Tag"
+
+SEC_DIMENSIONS = ("conf", "integ")
+"""The dimensions a lattice can describe: the elements of `@Sec`."""
 
 
 @dataclass(frozen=True)
@@ -21,7 +42,11 @@ class SecurityLabel:
 
     levels: tuple[tuple[str, str], ...]
 
-    def __init__(self, mapping: Mapping[str, str] | Iterable[tuple[str, str]] | None = None, **kwargs: str):
+    def __init__(
+        self,
+        mapping: Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        **kwargs: str,
+    ):
         pairs: dict[str, str] = {}
         if mapping is not None:
             if isinstance(mapping, Mapping):
@@ -139,7 +164,9 @@ class SecurityLattice:
                     c for c in self.levels if (a, c) in closure and (b, c) in closure
                 ]
                 if not upper_bounds:
-                    raise ValueError(f"No upper bound for pair ({a}, {b}) in lattice {self.dim}")
+                    raise ValueError(
+                        f"No upper bound for pair ({a}, {b}) in lattice {self.dim}"
+                    )
                 # Least upper bound: u in upper_bounds such that for all v in upper_bounds: u <= v
                 lubs = [
                     u
@@ -157,7 +184,9 @@ class SecurityLattice:
                     c for c in self.levels if (c, a) in closure and (c, b) in closure
                 ]
                 if not lower_bounds:
-                    raise ValueError(f"No lower bound for pair ({a}, {b}) in lattice {self.dim}")
+                    raise ValueError(
+                        f"No lower bound for pair ({a}, {b}) in lattice {self.dim}"
+                    )
                 # Greatest lower bound: g in lower_bounds such that for all v in lower_bounds: v <= g
                 glbs = [
                     g
@@ -171,12 +200,8 @@ class SecurityLattice:
                 meet_table[(a, b)] = glbs[0]
 
         # 4. Find bottom and top
-        bots = [
-            x for x in self.levels if all((x, y) in closure for y in self.levels)
-        ]
-        tops = [
-            x for x in self.levels if all((y, x) in closure for y in self.levels)
-        ]
+        bots = [x for x in self.levels if all((x, y) in closure for y in self.levels)]
+        tops = [x for x in self.levels if all((y, x) in closure for y in self.levels)]
         if len(bots) != 1:
             raise ValueError(f"Lattice {self.dim} has no unique bottom element")
         if len(tops) != 1:
@@ -219,10 +244,25 @@ class ProductLattice:
         object.__setattr__(self, "top", SecurityLabel(top_dict))
         object.__setattr__(self, "default_label", SecurityLabel(default_dict))
 
-    def make_label(self, mapping: Mapping[str, str] | None = None, **kwargs: str) -> SecurityLabel:
-        """Create a SecurityLabel where any missing dimension gets defaultLevel."""
+    def make_label(
+        self, mapping: Mapping[str, str] | None = None, **kwargs: str
+    ) -> SecurityLabel:
+        """Create a SecurityLabel where any missing (or empty) dimension gets defaultLevel.
+
+        Raises ValueError for a dimension or level the lattice does not declare.
+        """
         raw = dict(mapping or {})
         raw.update(kwargs)
+        for dim, level in raw.items():
+            if dim not in self.lattices:
+                raise ValueError(
+                    f"Unknown dimension {dim!r}; the lattices are {sorted(self.lattices)}"
+                )
+            if level and level not in self.lattices[dim].levels:
+                raise ValueError(
+                    f"Unknown level {level!r} in dimension {dim!r}; "
+                    f"the levels are {list(self.lattices[dim].levels)}"
+                )
         res = {}
         for dim, lat in self.lattices.items():
             res[dim] = raw.get(dim) or lat.default_level
@@ -258,13 +298,21 @@ class ProductLattice:
 
 @dataclass(frozen=True)
 class MethodSecurityPolicy:
-    """Security annotations for a single method."""
+    """Security annotations for a single method.
+
+    For a case method (one with `@Case`) the parameter labels are the labels of
+    the inputs. For a sink (any other method with an `@Sec` parameter) they are
+    the clearances its arguments must flow to. Parameters without `@Sec` get the
+    default level of every dimension.
+    """
 
     name: str
     signature: str
     param_labels: tuple[SecurityLabel, ...]
     return_clearance: SecurityLabel | None
     is_static: bool
+    is_sink: bool = False
+    param_slots: tuple[int, ...] = ()
     tags: frozenset[str] = field(default_factory=frozenset)
     cases: tuple[tuple[str, str], ...] = field(default_factory=tuple)
 
@@ -272,18 +320,24 @@ class MethodSecurityPolicy:
     def id(self) -> str:
         return f"{self.name}:{self.signature}"
 
+    @property
+    def is_case(self) -> bool:
+        return bool(self.cases)
+
     def initial_locals(
         self, product_lattice: ProductLattice, max_locals: int | None = None
     ) -> tuple[SecurityLabel, ...]:
         """Returns initial security labels for local variables at PC=0.
 
-        Parameters receive their @Sec source labels (or defaultLevel per dimension),
-        while non-parameter local slots start at the product lattice bottom (⊥).
+        Each parameter's label is placed in the local variable slot the JVM puts
+        that parameter in (`long` and `double` take two slots, `this` takes slot
+        0 of an instance method). Every other slot starts at bottom (⊥).
         """
-        total = max(len(self.param_labels), max_locals or len(self.param_labels))
-        locals_list = list(self.param_labels)
-        while len(locals_list) < total:
-            locals_list.append(product_lattice.bot)
+        slots = self.param_slots or tuple(range(len(self.param_labels)))
+        needed = max(slots, default=-1) + 1
+        locals_list = [product_lattice.bot] * max(needed, max_locals or 0)
+        for slot, label in zip(slots, self.param_labels):
+            locals_list[slot] = label
         return tuple(locals_list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -291,7 +345,9 @@ class MethodSecurityPolicy:
             "name": self.name,
             "signature": self.signature,
             "is_static": self.is_static,
+            "is_sink": self.is_sink,
             "param_labels": [lbl.as_dict() for lbl in self.param_labels],
+            "param_slots": list(self.param_slots),
             "return_clearance": (
                 self.return_clearance.as_dict() if self.return_clearance else None
             ),
@@ -307,7 +363,71 @@ class ClassSecurityPolicy:
     classname: str
     product_lattice: ProductLattice
     methods: dict[str, MethodSecurityPolicy]
-    fields: dict[str, SecurityLabel]
+
+    @classmethod
+    def from_json(cls, classjson: Mapping[str, Any]) -> ClassSecurityPolicy | None:
+        """Read the policy from a decompiled class (as returned by `Suite.findclass`).
+
+        Returns None for a class that declares no `@Lattice` (an ordinary case
+        class). Raises ValueError if the annotations are inconsistent, e.g. an
+        `@Sec` level that is not in the lattice.
+        """
+        classname = str(classjson["name"]).replace("/", ".")
+        methods_json = [
+            m for m in classjson.get("methods", []) if not m["name"].startswith("<")
+        ]
+
+        lattices: dict[str, SecurityLattice] = {}
+        for ann in _annotations(classjson.get("annotations", [])):
+            if ann.type != LATTICE:
+                continue
+            lattice = _lattice(ann, where=classname)
+            if lattice.dim in lattices:
+                raise ValueError(
+                    f"{classname}: dimension {lattice.dim!r} is declared twice"
+                )
+            lattices[lattice.dim] = lattice
+
+        if not lattices:
+            if any(_uses_sec(m) for m in methods_json):
+                raise ValueError(f"{classname} uses @Sec but declares no @Lattice")
+            return None
+
+        product = ProductLattice(lattices)
+        methods: dict[str, MethodSecurityPolicy] = {}
+        for mj in methods_json:
+            method = _method_policy(classname, mj, product)
+            methods[method.id] = method
+        return cls(classname=classname, product_lattice=product, methods=methods)
+
+    def method(
+        self, methodid: jvm.AbsMethodID | jvm.MethodID | str
+    ) -> MethodSecurityPolicy:
+        """The policy of a method, given as a method id (e.g. the one JPAMB passes to an analysis)."""
+        key = self._key(methodid)
+        if key is None or key not in self.methods:
+            raise KeyError(f"No method {methodid} in {self.classname}")
+        return self.methods[key]
+
+    def sink(
+        self, methodid: jvm.AbsMethodID | jvm.MethodID | str
+    ) -> MethodSecurityPolicy | None:
+        """The called method if it is a sink of this class, else None.
+
+        Use it on the method of an `invoke` instruction; the clearance of
+        argument i is `sink.param_labels[i]`.
+        """
+        key = self._key(methodid)
+        method = self.methods.get(key) if key is not None else None
+        return method if method is not None and method.is_sink else None
+
+    @property
+    def sinks(self) -> dict[str, MethodSecurityPolicy]:
+        return {mid: m for mid, m in self.methods.items() if m.is_sink}
+
+    @property
+    def case_methods(self) -> dict[str, MethodSecurityPolicy]:
+        return {mid: m for mid, m in self.methods.items() if m.is_case}
 
     def get_method(self, name_or_sig: str) -> MethodSecurityPolicy | None:
         if name_or_sig in self.methods:
@@ -319,13 +439,22 @@ class ClassSecurityPolicy:
         return None
 
     def get_sink_clearances(self) -> dict[str, tuple[SecurityLabel, ...]]:
-        """Returns a mapping from sink method IDs to their parameter clearance labels."""
+        """Returns a mapping from sink method IDs (and names) to their parameter clearances."""
         sinks: dict[str, tuple[SecurityLabel, ...]] = {}
-        for mid, m in self.methods.items():
-            if not m.cases and m.param_labels:
-                sinks[mid] = m.param_labels
-                sinks[m.name] = m.param_labels
+        for mid, m in self.sinks.items():
+            sinks[mid] = m.param_labels
+            sinks[m.name] = m.param_labels
         return sinks
+
+    def _key(self, methodid: jvm.AbsMethodID | jvm.MethodID | str) -> str | None:
+        """The key in `methods`; None if the method belongs to another class."""
+        if isinstance(methodid, jvm.AbsMethodID):
+            if str(methodid.classname) != self.classname:
+                return None
+            return methodid.extension.encode()
+        if isinstance(methodid, jvm.MethodID):
+            return methodid.encode()
+        return methodid.removeprefix(self.classname + ".")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -345,248 +474,170 @@ class ClassSecurityPolicy:
                 "top": self.product_lattice.top.as_dict(),
                 "default": self.product_lattice.default_label.as_dict(),
             },
-            "fields": {k: v.as_dict() for k, v in self.fields.items()},
             "methods": {k: m.to_dict() for k, m in self.methods.items()},
         }
 
 
 # ---------------------------------------------------------------------------
-# Bytecode Annotation Parser (ISY)
+# Reading annotations from the decompiled JSON (jvm2json format)
 # ---------------------------------------------------------------------------
 
-class BytecodeAnnotationParser:
-    """Extracts @Lattice, @Lattices, and @Sec annotations from Java bytecode.
 
-    Parses compiled classfiles using javap (available in any standard JDK).
-    """
+@dataclass(frozen=True)
+class Annotation:
+    """A decoded annotation: its type (e.g. "jpamb/utils/Sec") and element values."""
 
-    @classmethod
-    def parse_classfile(cls, classfile_path: Path | str) -> ClassSecurityPolicy:
-        path = Path(classfile_path)
-        if not path.is_file():
-            raise FileNotFoundError(f"Classfile not found: {path}")
+    type: str
+    values: dict[str, Any]
 
-        # Run javap -v -p to inspect full constant pool and attributes
-        cmd = ["javap", "-v", "-p", str(path)]
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        return cls.parse_javap_output(res.stdout, classname=path.stem)
 
-    @classmethod
-    def parse_javap_output(cls, output: str, classname: str = "") -> ClassSecurityPolicy:
-        # 1. Parse class name if not given
-        if not classname:
-            match_class = re.search(r"public class ([^\s<]+)", output)
-            if match_class:
-                classname = match_class.group(1).replace("/", ".")
+def _decode_value(value: Mapping[str, Any]) -> Any:
+    kind, inner = value["type"], value["value"]
+    if kind == "array":
+        return [_decode_value(v) for v in inner]
+    if kind == "annotation":
+        return _decode_annotation(inner)
+    if kind == "enum":
+        return inner["name"]
+    return inner
 
-        # 2. Extract @Lattice annotations from the class-level RuntimeVisibleAnnotations
-        # In javap, class-level annotations appear at the bottom under "SourceFile: ... RuntimeVisibleAnnotations:"
-        lattices = cls._extract_class_lattices(output)
-        if not lattices:
-            # Fallback default: single two-point confidentiality lattice if none declared
-            default_lat = SecurityLattice(
-                dim="conf",
-                levels=("Low", "High"),
-                order_edges=(("Low", "High"),),
-                default_level="Low",
-            )
-            product_lattice = ProductLattice({"conf": default_lat})
+
+def _decode_annotation(annotation: Mapping[str, Any]) -> Annotation:
+    return Annotation(
+        type=annotation["type"],
+        values={k: _decode_value(v) for k, v in annotation.get("values", {}).items()},
+    )
+
+
+def _annotations(raw: Iterable[Mapping[str, Any]]) -> list[Annotation]:
+    """Decode annotations, unpacking the containers of repeated annotations
+    (`@Lattices` holds the `@Lattice`s, `@Cases` the `@Case`s)."""
+    result = []
+    for annotation in map(_decode_annotation, raw):
+        if annotation.type in (LATTICES, CASES):
+            result.extend(annotation.values.get("value", []))
         else:
-            product_lattice = ProductLattice(lattices)
+            result.append(annotation)
+    return result
 
-        # 3. Extract methods, parameter annotations, and return annotations
-        methods = cls._extract_methods(output, product_lattice)
 
-        # 4. Extract static fields and their annotations
-        fields = cls._extract_fields(output, product_lattice)
+def _find(annotations: Iterable[Annotation], type: str) -> Annotation | None:
+    return next((a for a in annotations if a.type == type), None)
 
-        return ClassSecurityPolicy(
-            classname=classname,
-            product_lattice=product_lattice,
-            methods=methods,
-            fields=fields,
+
+def _lattice(ann: Annotation, *, where: str) -> SecurityLattice:
+    dim = ann.values["dim"]
+    if dim not in SEC_DIMENSIONS:
+        raise ValueError(
+            f"{where}: @Lattice dimension {dim!r} is not one of {list(SEC_DIMENSIONS)}"
         )
-
-    @classmethod
-    def _extract_class_lattices(cls, output: str) -> dict[str, SecurityLattice]:
-        lattices: dict[str, SecurityLattice] = {}
-
-        # Look for Lattice patterns:
-        # @Lattice(
-        #   dim="conf"
-        #   levels=["Public","Oncology",...]
-        #   order=["Public <= Oncology",...]
-        #   defaultLevel="Public"
-        # )
-        lattice_pattern = re.compile(
-            r"@(?:jpamb\.utils\.)?Lattice\s*\(\s*dim=\"([^\"]+)\"\s*levels=\[([^\]]*)\]\s*order=\[([^\]]*)\]\s*defaultLevel=\"([^\"]+)\"\s*\)",
-            re.MULTILINE,
-        )
-
-        for match in lattice_pattern.finditer(output):
-            dim = match.group(1).strip()
-            raw_levels = match.group(2)
-            raw_order = match.group(3)
-            default_level = match.group(4).strip()
-
-            levels = tuple(
-                lvl.strip().strip('"') for lvl in raw_levels.split(",") if lvl.strip()
+    edges = []
+    for edge in ann.values.get("order", []):
+        lo, sep, hi = edge.partition("<=")
+        if not sep or not lo.strip() or not hi.strip():
+            raise ValueError(
+                f"{where}: order edge {edge!r} is not of the form 'lo <= hi'"
             )
-            edges: list[tuple[str, str]] = []
-            for edge_str in raw_order.split(","):
-                edge_clean = edge_str.strip().strip('"')
-                if "<=" in edge_clean:
-                    lo, hi = edge_clean.split("<=", 1)
-                    edges.append((lo.strip(), hi.strip()))
+        edges.append((lo.strip(), hi.strip()))
+    return SecurityLattice(
+        dim=dim,
+        levels=tuple(ann.values.get("levels", [])),
+        order_edges=tuple(edges),
+        default_level=ann.values["defaultLevel"],
+    )
 
-            lat = SecurityLattice(
-                dim=dim,
-                levels=levels,
-                order_edges=tuple(edges),
-                default_level=default_level,
-            )
-            lattices[dim] = lat
 
-        return lattices
+def _label(
+    product: ProductLattice, sec: Annotation | None, *, where: str
+) -> SecurityLabel:
+    """The label an `@Sec` describes; dimensions it leaves out get their default."""
+    try:
+        return product.make_label(sec.values if sec is not None else {})
+    except ValueError as e:
+        raise ValueError(f"{where}: {e}") from None
 
-    @classmethod
-    def _extract_sec_annotation(
-        cls, block: str, product_lattice: ProductLattice
-    ) -> SecurityLabel | None:
-        """Finds a @Sec annotation in a text block and converts it to a SecurityLabel."""
-        sec_pattern = re.compile(
-            r"(?:jpamb\.utils\.)?Sec\s*\(\s*([^)]*)\)", re.DOTALL
-        )
-        m = sec_pattern.search(block)
-        if not m:
-            return None
 
-        inner = m.group(1)
-        vals: dict[str, str] = {}
-        for dim in product_lattice.lattices:
-            match_dim = re.search(rf"{dim}\s*=\s*\"([^\"]+)\"", inner)
-            if match_dim:
-                vals[dim] = match_dim.group(1).strip()
+def _uses_sec(method: Mapping[str, Any]) -> bool:
+    if _find(_annotations(method.get("annotations", [])), SEC):
+        return True
+    return any(
+        _find(_annotations(p.get("annotations", [])), SEC)
+        for p in method.get("params", [])
+    )
 
-        return product_lattice.make_label(vals)
 
-    @classmethod
-    def _extract_methods(
-        cls, output: str, product_lattice: ProductLattice
-    ) -> dict[str, MethodSecurityPolicy]:
-        methods: dict[str, MethodSecurityPolicy] = {}
+_BASE_DESCRIPTORS = {
+    "int": "I",
+    "integer": "I",
+    "boolean": "Z",
+    "char": "C",
+    "short": "S",
+    "byte": "B",
+    "long": "J",
+    "float": "F",
+    "double": "D",
+}
 
-        # Split javap output into method sections
-        # A method in javap looks like:
-        #   public static void process(int, int);
-        #     descriptor: (II)V
-        #     flags: (0x0009) ACC_PUBLIC, ACC_STATIC
-        #     Code:
-        #     ...
-        #     RuntimeVisibleParameterAnnotations:
-        #       ...
-        #
-        method_blocks = re.split(r"\n\s*(?:public|protected|private|static|\/\*)\s+", output)
-        method_header_re = re.compile(
-            r"^(?:(?:public|protected|private|static|final|synchronized)\s+)*([^\s(]+)\s+([^\s(]+)\(([^)]*)\);\s*descriptor:\s*([^\s]+)",
-            re.MULTILINE,
-        )
 
-        for block in method_blocks:
-            m_hdr = method_header_re.search(block)
-            if not m_hdr:
-                continue
+def _descriptor(type_json: Mapping[str, Any] | None) -> str:
+    """The JVM descriptor of a jvm2json type (`None` is void)."""
+    if type_json is None:
+        return "V"
+    if "base" in type_json:
+        return _BASE_DESCRIPTORS[type_json["base"]]
+    if type_json.get("kind") == "array":
+        return "[" + _descriptor(type_json["type"])
+    if type_json.get("kind") == "class":
+        return f"L{type_json['name']};"
+    raise ValueError(f"Unknown type {type_json!r}")
 
-            return_type_str = m_hdr.group(1)
-            method_name = m_hdr.group(2)
-            raw_params = m_hdr.group(3)
-            descriptor = m_hdr.group(4)
-            is_static = "static" in block.split("Code:")[0]
 
-            # Parse parameter count from raw_params
-            param_types = [p.strip() for p in raw_params.split(",") if p.strip()]
-            num_params = len(param_types)
+def _method_policy(
+    classname: str, mj: Mapping[str, Any], product: ProductLattice
+) -> MethodSecurityPolicy:
+    name = mj["name"]
+    params = mj.get("params", [])
+    signature = (
+        "("
+        + "".join(_descriptor(p["type"]) for p in params)
+        + ")"
+        + _descriptor(mj.get("returns", {}).get("type"))
+    )
+    where = f"{classname}.{name}:{signature}"
+    is_static = "static" in mj.get("access", [])
 
-            # Extract parameter annotations
-            param_labels: list[SecurityLabel] = []
-            param_ann_match = re.search(
-                r"RuntimeVisibleParameterAnnotations:\s*(.*?)(?=\n\s*(?:RuntimeVisibleAnnotations|StackMapTable|LineNumberTable|[A-Z])|\Z)",
-                block,
-                re.DOTALL,
-            )
+    annotations = _annotations(mj.get("annotations", []))
+    cases = tuple(
+        (inp.strip(), out.strip())
+        for a in annotations
+        if a.type == CASE
+        for inp, _, out in [a.values["value"].rpartition("->")]
+    )
+    tags = frozenset(
+        tag for a in annotations if a.type == TAG for tag in a.values.get("value", [])
+    )
+    return_sec = _find(annotations, SEC)
+    return_clearance = (
+        _label(product, return_sec, where=f"{where} return") if return_sec else None
+    )
 
-            param_blocks: dict[int, str] = {}
-            if param_ann_match:
-                param_text = param_ann_match.group(1)
-                p_splits = re.split(r"parameter\s+(\d+):", param_text)
-                for i in range(1, len(p_splits), 2):
-                    idx = int(p_splits[i])
-                    param_blocks[idx] = p_splits[i + 1]
+    labels, slots, has_sec_param = [], [], False
+    slot = 0 if is_static else 1
+    for i, p in enumerate(params):
+        sec = _find(_annotations(p.get("annotations", [])), SEC)
+        has_sec_param |= sec is not None
+        labels.append(_label(product, sec, where=f"{where} parameter {i}"))
+        slots.append(slot)
+        slot += 2 if _descriptor(p["type"]) in ("J", "D") else 1
 
-            for i in range(num_params):
-                if i in param_blocks:
-                    lbl = cls._extract_sec_annotation(param_blocks[i], product_lattice)
-                    param_labels.append(lbl if lbl else product_lattice.default_label)
-                else:
-                    param_labels.append(product_lattice.default_label)
-
-            # Method return annotation (in method-level RuntimeVisibleAnnotations)
-            ret_label = None
-            m_ann_match = re.search(
-                r"RuntimeVisibleAnnotations:\s*(.*?)(?=\n\s*(?:RuntimeVisibleParameterAnnotations|StackMapTable|LineNumberTable|[A-Z])|\Z)",
-                block,
-                re.DOTALL,
-            )
-            if m_ann_match:
-                ret_label = cls._extract_sec_annotation(m_ann_match.group(1), product_lattice)
-
-            # Tags and Cases
-            tags: set[str] = set()
-            tag_match = re.search(r"TagType;\.([A-Z_]+)", block)
-            if tag_match:
-                for tm in re.finditer(r"TagType;\.([A-Z_]+)", block):
-                    tags.add(tm.group(1))
-
-            cases: list[tuple[str, str]] = []
-            for cm in re.finditer(r'value="(\([^)]*\)\s*->\s*[^"]+)"', block):
-                case_str = cm.group(1)
-                if "->" in case_str:
-                    cinp, cout = case_str.split("->", 1)
-                    cases.append((cinp.strip(), cout.strip()))
-
-            policy = MethodSecurityPolicy(
-                name=method_name,
-                signature=descriptor,
-                param_labels=tuple(param_labels),
-                return_clearance=ret_label,
-                is_static=is_static,
-                tags=frozenset(tags),
-                cases=tuple(cases),
-            )
-            methods[f"{method_name}:{descriptor}"] = policy
-
-        return methods
-
-    @classmethod
-    def _extract_fields(
-        cls, output: str, product_lattice: ProductLattice
-    ) -> dict[str, SecurityLabel]:
-        fields: dict[str, SecurityLabel] = {}
-        # Example in javap:
-        #   static int publicDashboard;
-        #     descriptor: I
-        #     flags: (0x0008) ACC_STATIC
-        #     RuntimeVisibleAnnotations:
-        #       0: #... Sec(conf="Public", integ="Untrusted")
-        field_matches = re.finditer(
-            r"static\s+[^\s;]+\s+([a-zA-Z0-9_$]+);.*?RuntimeVisibleAnnotations:\s*(.*?)(?=\n\s*(?:static|[a-z]+ void|[a-z]+ int|\}))",
-            output,
-            re.DOTALL,
-        )
-        for fm in field_matches:
-            fname = fm.group(1)
-            fblock = fm.group(2)
-            lbl = cls._extract_sec_annotation(fblock, product_lattice)
-            if lbl:
-                fields[fname] = lbl
-        return fields
+    return MethodSecurityPolicy(
+        name=name,
+        signature=signature,
+        param_labels=tuple(labels),
+        return_clearance=return_clearance,
+        is_static=is_static,
+        is_sink=has_sec_param and not cases,
+        param_slots=tuple(slots),
+        tags=tags,
+        cases=cases,
+    )

@@ -9,7 +9,6 @@ import jpamb
 import sexpr
 from jpamb import jvm
 from jvm.state import PC, StackInt
-import jvm.state as jvmc
 
 
 @dataclass(frozen=True)
@@ -50,8 +49,10 @@ class State(sexpr.AsSExpr):
             self.stack,
         )
 
+
 def is_array_ref_null(ref: SignSet) -> set[bool]:
     return SignSet.compare(ref, SignSet.from_sign("0"), jvm.CmpOpr.Eq)
+
 
 def array_access(pc: PC, index: SignSet, after: State):
     """Bounds check for an array access on a non-null array.
@@ -63,6 +64,7 @@ def array_access(pc: PC, index: SignSet, after: State):
     if True in SignSet.compare(index, SignSet.abstract([StackInt(0)]), jvm.CmpOpr.Ge):
         yield (pc + 1, after)
     yield "out of bounds"
+
 
 def manystep(
     bc: jpamb.Bytecode,
@@ -79,20 +81,20 @@ def manystep(
             va = SignSet.abstract([StackInt(0)])
 
             yield (pc + 1, state.push(va))
-            
+
         case jvm.Dup():
             (val,), after = state.pop()
             yield (pc + 1, after.push(val).push(val))
-            
+
         case jvm.Goto(target=target):
             yield (pc % target, state)
-            
+
         case jvm.Store(type=t, index=i):
             if state.stack.__sizeof__() == 0:
                 yield "out of bounds"
             (val,), after = state.pop()
             yield (pc + 1, after.store(i, val))
-            
+
         case jvm.Cast(from_=f, to_=t):
             match f, t:
                 case jvm.Int(), jvm.Boolean():
@@ -106,22 +108,26 @@ def manystep(
                     yield (pc + 1, after.push(val))
                 case _:
                     yield "unsupported cast"
-                    
+
         case jvm.NewArray(type=t, dim=d):
             if d != 1:
                 yield "unsupported array dimension"
             (size,), after = state.pop()
-            for res in SignSet.compare(size, SignSet.abstract([StackInt(0)]), jvm.CmpOpr.Gt):
+            for res in SignSet.compare(
+                size, SignSet.abstract([StackInt(0)]), jvm.CmpOpr.Gt
+            ):
                 match res:
                     case True:
                         yield (pc + 1, after.push(SignSet.from_sign("+")))
                     case False:
-                        if True in SignSet.compare(size, SignSet.abstract([StackInt(0)]), jvm.CmpOpr.Eq):
+                        if True in SignSet.compare(
+                            size, SignSet.abstract([StackInt(0)]), jvm.CmpOpr.Eq
+                        ):
                             # An empty array is still a non-null reference.
                             yield (pc + 1, after.push(SignSet.from_sign("+")))
                     case err:
                         yield err
-                        
+
         case jvm.ArrayStore(type=t):
             [arrayref, index, val], after = state.pop(3)
 
@@ -135,21 +141,21 @@ def manystep(
             match t:
                 case jvm.Reference():
                     if not isinstance(v, int):
-                        raise ValueError(f"Expected reference but got {v!r}")
+                        raise TypeError(f"Expected reference but got {v!r}")
                     if v == 0:
                         yield (pc + 1, state.push(SignSet.from_sign("0")))
-                    else: 
+                    else:
                         yield (pc + 1, state.push(SignSet.from_sign("+")))
                 case jvm.Int():
                     if not isinstance(v, int):
-                        raise ValueError(f"Expected int but got {v!r}")
+                        raise TypeError(f"Expected int but got {v!r}")
                     yield (pc + 1, state.push(SignSet.abstract([StackInt(v)])))
                 case _:
-                    yield (pc +1, state)
-                        
+                    yield (pc + 1, state)
+
         case jvm.ArrayLength():
             [arrayref], after = state.pop(1)
-            
+
             for res in is_array_ref_null(arrayref):
                 print(f"Array length check: {res} for {arrayref}", file=sys.stderr)
                 match res:
@@ -157,10 +163,13 @@ def manystep(
                         yield "null pointer"
                     case False:
                         # The array length is always non-negative, but we don't know the exact length, so we abstract it to 0 or 1.
-                        yield (pc + 1, after.push(SignSet.abstract([StackInt(0), StackInt(1)])))
+                        yield (
+                            pc + 1,
+                            after.push(SignSet.abstract([StackInt(0), StackInt(1)])),
+                        )
                     case err:
                         yield err
-            
+
         case jvm.ArrayLoad(type=t):
             [arrayref, index], after = state.pop(2)
 
@@ -169,22 +178,26 @@ def manystep(
                     case True:
                         yield "null pointer"
                     case False:
-                        yield from array_access(pc, index, after.push(SignSet.from_sign("-+0")))
+                        yield from array_access(
+                            pc, index, after.push(SignSet.from_sign("-+0"))
+                        )
 
-        case jvm.Incr(index=i,amount=a):
+        case jvm.Incr(index=i, amount=a):
             va = state.load(i)
-            res, errors = SignSet.arithmetic(va, SignSet.abstract([StackInt(a)]), jvm.BinaryOpr.Add)
+            res, errors = SignSet.arithmetic(
+                va, SignSet.abstract([StackInt(a)]), jvm.BinaryOpr.Add
+            )
             yield from errors
             if res.signs:
                 yield (pc + 1, state.store(i, res))
-                    
+
         case jvm.Load(type=t, index=i):
             va = state.load(i)
             yield (pc + 1, state.push(va))
-        
+
         case jvm.If(condition=op, target=target):
             [v1, v2], after = state.pop(2)
-            
+
             for res in SignSet.compare(v1, v2, op):
                 match res:
                     case True:
@@ -208,7 +221,9 @@ def manystep(
 
         case jvm.Negate(type=t):
             [val], after = state.pop(1)
-            res, errors = SignSet.arithmetic(val, SignSet.abstract([StackInt(-1)]), jvm.BinaryOpr.Mul)
+            res, errors = SignSet.arithmetic(
+                val, SignSet.abstract([StackInt(-1)]), jvm.BinaryOpr.Mul
+            )
             yield from errors
             if res.signs:
                 yield (pc + 1, after.push(res))
