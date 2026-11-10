@@ -42,13 +42,20 @@ def test_analyse(solution):
 @pytest.mark.slow
 def test_analyse_report(tmp_path):
     runner = CliRunner()
+
+    solution = "jpamb-analysis-dummy"
+    exe = shutil.which(solution)
+    if exe is None:
+        pytest.skip(f"Could not find {solution} on path")
+
     result = runner.invoke(
         cli.cli,
         [
+            "-vv",
             "analyse",
             "--report",
             (tmp_path / "report.sexp"),
-            "jpamb-analysis-dummy",
+            exe,
         ],
         catch_exceptions=False,
     )

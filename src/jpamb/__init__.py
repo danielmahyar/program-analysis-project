@@ -393,28 +393,33 @@ class Suite:
 
             entries = {}
             for case in self.cases(eff=eff):
-                trace = traces.get(case.experiment)
-                if trace is None:
-                    eff.error(f"No trace for {case.experiment}")
-                    continue
-                if trace["result"] is not None and trace["result"] != case.result:
-                    eff.error(f"Traced {case} but got {trace['result']}")
+                with eff.context(case):
+                    trace = traces.get(case.experiment)
+                    if trace is None:
+                        eff.error(f"No trace for {case.experiment}")
+                        continue
+                    if trace["result"] is not None and trace["result"] != case.result:
+                        eff.error(f"Traced {case} but got {trace['result']}")
 
-                coverage = {
-                    jvm.AbsMethodID.decode(m): Coverage(reachable=set(offsets))
-                    for m, offsets in trace["coverage"].items()
-                }
+                    reached = {
+                        jvm.AbsMethodID.decode(m): set(offsets)
+                        for m, offsets in trace["coverage"].items()
+                    }
 
-                control = Control(coverage=coverage, results={case.result})
-                entries.setdefault(case.experiment.entry, []).append(control)
-                experiments[case.experiment] = control
+                    coverage = OrderedDict()
+                    for m in sorted(reached):
+                        coverage[m] = Coverage(reachable=reached[m])
 
-                eff.info(f"Found {sexpr.pretty(sexpr.sexpr(control), indent=2)}")
+                    control = Control(coverage=coverage, results={case.result})
+                    entries.setdefault(case.experiment.entry, []).append(control)
+                    experiments[case.experiment] = control
+
+                    eff.info(f"Found {sexpr.pretty(sexpr.sexpr(control), indent=2)}")
 
         for entry, controls in entries.items():
             experiment = Experiment(entry, None)
 
-            coverage = {}
+            coverage = OrderedDict()
             results = set()
             for control in controls:
                 results |= control.results

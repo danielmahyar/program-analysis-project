@@ -466,7 +466,7 @@ class Coverage(sexpr.AsSExpr):
 
 @dataclass(frozen=True, slots=True)
 class Control(sexpr.AsSExpr):
-    coverage: dict[jvm.AbsMethodID, Coverage]
+    coverage: collections.OrderedDict[jvm.AbsMethodID, Coverage]
     results: set[str]
 
     def __sexpr__(self) -> sexpr.SExpr:
