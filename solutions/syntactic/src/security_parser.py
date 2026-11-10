@@ -35,9 +35,7 @@ def main():
     parser.add_argument(
         "--method", "-m", default=None, help="Only show the method with this name"
     )
-    parser.add_argument(
-        "--json", action="store_true", help="Print the policy as JSON"
-    )
+    parser.add_argument("--json", action="store_true", help="Print the policy as JSON")
     args = parser.parse_args()
 
     suite, eff = jpamb.setup()
@@ -51,7 +49,9 @@ def main():
         sys.exit(f"{args.target} declares no @Lattice.")
 
     methods = [
-        m for m in policy.methods.values() if args.method is None or m.name == args.method
+        m
+        for m in policy.methods.values()
+        if args.method is None or m.name == args.method
     ]
 
     if args.json:
@@ -71,7 +71,9 @@ def main():
         print(f"    Bottom (⊥):   {lat.bot}")
         print(f"    Top (⊤):      {lat.top}")
         print(f"    Default:      {lat.default_level}")
-        print(f"    Edges (Hasse): {', '.join(f'{lo} <= {hi}' for lo, hi in lat.order_edges)}")
+        print(
+            f"    Edges (Hasse): {', '.join(f'{lo} <= {hi}' for lo, hi in lat.order_edges)}"
+        )
 
     print("\n[+] PRODUCT LATTICE:")
     print(f"  - Bottom (⊥):   {policy.product_lattice.bot}")

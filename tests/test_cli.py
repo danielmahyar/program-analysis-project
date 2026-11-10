@@ -118,6 +118,11 @@ def test_inspect(method, format):
     assert result.exit_code == 0, result.output
 
 
+# The reports in tests/data were made for the cases of JPAMB 0.7.0, so they are
+# validated against its benchmark, not against the current (growing) one.
+REPORTS_WORKDIR = "tests/data/jpamb-0.7.0"
+
+
 @pytest.mark.slow
 @pytest.mark.parametrize("format", ["autolab", "user"])
 def test_validate_analysis(format):
@@ -125,6 +130,8 @@ def test_validate_analysis(format):
     result = runner.invoke(
         cli.cli,
         [
+            "--workdir",
+            REPORTS_WORKDIR,
             "-v",
             "validate",
             "analyse",
@@ -145,6 +152,8 @@ def test_validate_interpret(format):
     result = runner.invoke(
         cli.cli,
         [
+            "--workdir",
+            REPORTS_WORKDIR,
             "-v",
             "validate",
             "interpret",

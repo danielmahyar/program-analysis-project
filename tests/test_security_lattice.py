@@ -209,17 +209,27 @@ def test_lookup_by_jpamb_method_ids():
     policy = policy_of("Hospital")
 
     # The method id an analysis receives from JPAMB
-    process = policy.method(jvm.AbsMethodID.decode("jpamb.cases.Hospital.process:(II)V"))
+    process = policy.method(
+        jvm.AbsMethodID.decode("jpamb.cases.Hospital.process:(II)V")
+    )
     assert process.is_case and not process.is_sink and process.is_static
     assert process.param_slots == (0, 1)
     assert ("(6000, 1)", "assertion error") in process.cases
 
     # The method of an invoke instruction: sinks give their clearances, others None
-    sink = policy.sink(jvm.AbsMethodID.decode("jpamb.cases.Hospital.publicDashboard:(I)V"))
+    sink = policy.sink(
+        jvm.AbsMethodID.decode("jpamb.cases.Hospital.publicDashboard:(I)V")
+    )
     assert sink is not None and sink.is_static
     assert sink.param_labels == (policy.product_lattice.make_label(conf="Public"),)
-    assert policy.sink(jvm.AbsMethodID.decode("jpamb.cases.Hospital.process:(II)V")) is None
-    assert policy.sink(jvm.AbsMethodID.decode("jpamb.cases.Simple.assertFalse:()V")) is None
+    assert (
+        policy.sink(jvm.AbsMethodID.decode("jpamb.cases.Hospital.process:(II)V"))
+        is None
+    )
+    assert (
+        policy.sink(jvm.AbsMethodID.decode("jpamb.cases.Simple.assertFalse:()V"))
+        is None
+    )
 
     assert set(policy.sinks) == {
         "publicDashboard:(I)V",
@@ -265,7 +275,11 @@ def test_parse_clearance_and_compartments():
     assert conf_lat.bot == "Unclassified"
     assert conf_lat.top == "TopSecret"
     assert conf_lat.le("Restricted", "Secret")  # Transitive closure
-    assert policy.product_lattice.lattices["integ"].levels == ("Trusted", "Partner", "Untrusted")
+    assert policy.product_lattice.lattices["integ"].levels == (
+        "Trusted",
+        "Partner",
+        "Untrusted",
+    )
 
     policy = policy_of("Compartments")
     conf_lat = policy.product_lattice.lattices["conf"]
@@ -276,7 +290,9 @@ def test_parse_clearance_and_compartments():
 
 def test_case_classes_without_lattice_have_no_policy():
     for name in ["Simple", "Calls", "Arrays", "InformationFlow"]:
-        assert suite.security_policy(jvm.ClassName(f"jpamb.cases.{name}"), eff=eff) is None
+        assert (
+            suite.security_policy(jvm.ClassName(f"jpamb.cases.{name}"), eff=eff) is None
+        )
 
 
 @pytest.mark.parametrize("name", SECURITY_CLASSES)
@@ -289,7 +305,11 @@ def test_policy_cases_are_served_by_jpamb(name):
         for inp, out in m.cases
     }
     served = {
-        (f"{c.methodid.classname}.{c.methodid.extension.encode()}", c.input.encode(), c.result)
+        (
+            f"{c.methodid.classname}.{c.methodid.extension.encode()}",
+            c.input.encode(),
+            c.result,
+        )
         for c in suite.cases(eff=eff)
         if str(c.methodid.classname) == policy.classname
     }
@@ -323,7 +343,11 @@ def _lattice(dim, levels, order, default):
 
 
 def _param(base, *annotations):
-    return {"visible": True, "type": {"base": base, "annotations": []}, "annotations": list(annotations)}
+    return {
+        "visible": True,
+        "type": {"base": base, "annotations": []},
+        "annotations": list(annotations),
+    }
 
 
 def _method(name, params, *annotations, access=("public", "static")):
@@ -345,7 +369,10 @@ LOW_HIGH = _lattice("conf", ["Low", "High"], ["Low <= High"], "Low")
 
 def test_single_lattice_without_container():
     policy = ClassSecurityPolicy.from_json(
-        _class([LOW_HIGH], [_method("sink", [_param("int", _ann("Sec", conf=_str("Low")))])])
+        _class(
+            [LOW_HIGH],
+            [_method("sink", [_param("int", _ann("Sec", conf=_str("Low")))])],
+        )
     )
     assert policy is not None
     assert list(policy.product_lattice.lattices) == ["conf"]
@@ -354,13 +381,20 @@ def test_single_lattice_without_container():
 
 def test_parameter_slots_of_instance_method_with_long():
     policy = ClassSecurityPolicy.from_json(
-        _class([LOW_HIGH], [_method("m", [_param("long"), _param("int")], access=("public",))])
+        _class(
+            [LOW_HIGH],
+            [_method("m", [_param("long"), _param("int")], access=("public",))],
+        )
     )
     m = policy.method("m:(JI)V")
     assert m.param_slots == (1, 3)
     bot = policy.product_lattice.bot
     assert m.initial_locals(policy.product_lattice, max_locals=5) == (
-        bot, m.param_labels[0], bot, m.param_labels[1], bot,
+        bot,
+        m.param_labels[0],
+        bot,
+        m.param_labels[1],
+        bot,
     )
 
 
@@ -368,11 +402,17 @@ def test_parameter_slots_of_instance_method_with_long():
     ("classjson", "message"),
     [
         (
-            _class([LOW_HIGH], [_method("m", [_param("int", _ann("Sec", conf=_str("Secret")))])]),
+            _class(
+                [LOW_HIGH],
+                [_method("m", [_param("int", _ann("Sec", conf=_str("Secret")))])],
+            ),
             "Unknown level 'Secret'",
         ),
         (
-            _class([LOW_HIGH], [_method("m", [_param("int", _ann("Sec", integ=_str("Trusted")))])]),
+            _class(
+                [LOW_HIGH],
+                [_method("m", [_param("int", _ann("Sec", integ=_str("Trusted")))])],
+            ),
             "Unknown dimension 'integ'",
         ),
         (

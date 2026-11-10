@@ -2,9 +2,9 @@
 """A very stupid syntactic analysis, that only checks for assertion errors."""
 
 import logging
+import re
 import sys
 from pathlib import Path
-import re
 
 import tree_sitter
 import tree_sitter_java
@@ -156,13 +156,16 @@ def main():
     predictions["assertion error"] = assertion_error
     predictions["ok"] = ok_prediction
 
-    res = tree_sitter.Query(JAVA_LANGUAGE, """(binary_expression
+    res = tree_sitter.Query(
+        JAVA_LANGUAGE,
+        """(binary_expression
     left: (_)
     operator: "/"
     right: [
         (decimal_integer_literal)
         (identifier)
-    ] @division_by_zero)""")
+    ] @division_by_zero)""",
+    )
 
     log.debug(tree_sitter.QueryCursor(res).captures(body).items())
     division_by_zero = any(
@@ -187,14 +190,16 @@ def main():
         ] @array
         """,
     )
-    array_found = bool(tree_sitter.QueryCursor(array_q).captures(snode).get("array", []))
+    array_found = bool(
+        tree_sitter.QueryCursor(array_q).captures(snode).get("array", [])
+    )
     if array_found:
         predictions["out of bounds"] = "array-present"
         log.debug("Found array usage")
     else:
         predictions["out of bounds"] = "-5.1"
         log.debug("No array usage")
-        
+
     while_any_q = tree_sitter.Query(JAVA_LANGUAGE, """(while_statement) @while_any""")
     while_true_q = tree_sitter.Query(
         JAVA_LANGUAGE,
@@ -208,12 +213,14 @@ def main():
               condition: (parenthesized_expression (false)) @while_false)""",
     )
 
-    while_nodes = tree_sitter.QueryCursor(while_any_q).captures(body).get("while_any", [])
+    while_nodes = (
+        tree_sitter.QueryCursor(while_any_q).captures(body).get("while_any", [])
+    )
     while_true_caps = tree_sitter.QueryCursor(while_true_q).captures(body)
     while_true_nodes = while_true_caps.get("while_true", [])
     while_true_stmt_nodes = while_true_caps.get("while_true_stmt", [])
-    while_false_nodes = tree_sitter.QueryCursor(while_false_q).captures(body).get(
-        "while_false", []
+    while_false_nodes = (
+        tree_sitter.QueryCursor(while_false_q).captures(body).get("while_false", [])
     )
 
     while_any_found = bool(while_nodes)
@@ -225,7 +232,9 @@ def main():
             JAVA_LANGUAGE,
             """(return_statement) @return""",
         )
-        return bool(tree_sitter.QueryCursor(return_q).captures(loop_node).get("return", []))
+        return bool(
+            tree_sitter.QueryCursor(return_q).captures(loop_node).get("return", [])
+        )
 
     while_true_with_return = any(
         has_return_statement(while_node) for while_node in while_true_stmt_nodes

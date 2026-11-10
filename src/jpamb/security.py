@@ -42,7 +42,11 @@ class SecurityLabel:
 
     levels: tuple[tuple[str, str], ...]
 
-    def __init__(self, mapping: Mapping[str, str] | Iterable[tuple[str, str]] | None = None, **kwargs: str):
+    def __init__(
+        self,
+        mapping: Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        **kwargs: str,
+    ):
         pairs: dict[str, str] = {}
         if mapping is not None:
             if isinstance(mapping, Mapping):
@@ -160,7 +164,9 @@ class SecurityLattice:
                     c for c in self.levels if (a, c) in closure and (b, c) in closure
                 ]
                 if not upper_bounds:
-                    raise ValueError(f"No upper bound for pair ({a}, {b}) in lattice {self.dim}")
+                    raise ValueError(
+                        f"No upper bound for pair ({a}, {b}) in lattice {self.dim}"
+                    )
                 # Least upper bound: u in upper_bounds such that for all v in upper_bounds: u <= v
                 lubs = [
                     u
@@ -178,7 +184,9 @@ class SecurityLattice:
                     c for c in self.levels if (c, a) in closure and (c, b) in closure
                 ]
                 if not lower_bounds:
-                    raise ValueError(f"No lower bound for pair ({a}, {b}) in lattice {self.dim}")
+                    raise ValueError(
+                        f"No lower bound for pair ({a}, {b}) in lattice {self.dim}"
+                    )
                 # Greatest lower bound: g in lower_bounds such that for all v in lower_bounds: v <= g
                 glbs = [
                     g
@@ -192,12 +200,8 @@ class SecurityLattice:
                 meet_table[(a, b)] = glbs[0]
 
         # 4. Find bottom and top
-        bots = [
-            x for x in self.levels if all((x, y) in closure for y in self.levels)
-        ]
-        tops = [
-            x for x in self.levels if all((y, x) in closure for y in self.levels)
-        ]
+        bots = [x for x in self.levels if all((x, y) in closure for y in self.levels)]
+        tops = [x for x in self.levels if all((y, x) in closure for y in self.levels)]
         if len(bots) != 1:
             raise ValueError(f"Lattice {self.dim} has no unique bottom element")
         if len(tops) != 1:
@@ -240,7 +244,9 @@ class ProductLattice:
         object.__setattr__(self, "top", SecurityLabel(top_dict))
         object.__setattr__(self, "default_label", SecurityLabel(default_dict))
 
-    def make_label(self, mapping: Mapping[str, str] | None = None, **kwargs: str) -> SecurityLabel:
+    def make_label(
+        self, mapping: Mapping[str, str] | None = None, **kwargs: str
+    ) -> SecurityLabel:
         """Create a SecurityLabel where any missing (or empty) dimension gets defaultLevel.
 
         Raises ValueError for a dimension or level the lattice does not declare.
@@ -367,7 +373,9 @@ class ClassSecurityPolicy:
         `@Sec` level that is not in the lattice.
         """
         classname = str(classjson["name"]).replace("/", ".")
-        methods_json = [m for m in classjson.get("methods", []) if not m["name"].startswith("<")]
+        methods_json = [
+            m for m in classjson.get("methods", []) if not m["name"].startswith("<")
+        ]
 
         lattices: dict[str, SecurityLattice] = {}
         for ann in _annotations(classjson.get("annotations", [])):
@@ -375,7 +383,9 @@ class ClassSecurityPolicy:
                 continue
             lattice = _lattice(ann, where=classname)
             if lattice.dim in lattices:
-                raise ValueError(f"{classname}: dimension {lattice.dim!r} is declared twice")
+                raise ValueError(
+                    f"{classname}: dimension {lattice.dim!r} is declared twice"
+                )
             lattices[lattice.dim] = lattice
 
         if not lattices:
@@ -390,14 +400,18 @@ class ClassSecurityPolicy:
             methods[method.id] = method
         return cls(classname=classname, product_lattice=product, methods=methods)
 
-    def method(self, methodid: jvm.AbsMethodID | jvm.MethodID | str) -> MethodSecurityPolicy:
+    def method(
+        self, methodid: jvm.AbsMethodID | jvm.MethodID | str
+    ) -> MethodSecurityPolicy:
         """The policy of a method, given as a method id (e.g. the one JPAMB passes to an analysis)."""
         key = self._key(methodid)
         if key is None or key not in self.methods:
             raise KeyError(f"No method {methodid} in {self.classname}")
         return self.methods[key]
 
-    def sink(self, methodid: jvm.AbsMethodID | jvm.MethodID | str) -> MethodSecurityPolicy | None:
+    def sink(
+        self, methodid: jvm.AbsMethodID | jvm.MethodID | str
+    ) -> MethodSecurityPolicy | None:
         """The called method if it is a sink of this class, else None.
 
         Use it on the method of an `invoke` instruction; the clearance of
@@ -521,7 +535,9 @@ def _lattice(ann: Annotation, *, where: str) -> SecurityLattice:
     for edge in ann.values.get("order", []):
         lo, sep, hi = edge.partition("<=")
         if not sep or not lo.strip() or not hi.strip():
-            raise ValueError(f"{where}: order edge {edge!r} is not of the form 'lo <= hi'")
+            raise ValueError(
+                f"{where}: order edge {edge!r} is not of the form 'lo <= hi'"
+            )
         edges.append((lo.strip(), hi.strip()))
     return SecurityLattice(
         dim=dim,
@@ -531,7 +547,9 @@ def _lattice(ann: Annotation, *, where: str) -> SecurityLattice:
     )
 
 
-def _label(product: ProductLattice, sec: Annotation | None, *, where: str) -> SecurityLabel:
+def _label(
+    product: ProductLattice, sec: Annotation | None, *, where: str
+) -> SecurityLabel:
     """The label an `@Sec` describes; dimensions it leaves out get their default."""
     try:
         return product.make_label(sec.values if sec is not None else {})
@@ -542,7 +560,10 @@ def _label(product: ProductLattice, sec: Annotation | None, *, where: str) -> Se
 def _uses_sec(method: Mapping[str, Any]) -> bool:
     if _find(_annotations(method.get("annotations", [])), SEC):
         return True
-    return any(_find(_annotations(p.get("annotations", [])), SEC) for p in method.get("params", []))
+    return any(
+        _find(_annotations(p.get("annotations", [])), SEC)
+        for p in method.get("params", [])
+    )
 
 
 _BASE_DESCRIPTORS = {
@@ -577,7 +598,9 @@ def _method_policy(
     name = mj["name"]
     params = mj.get("params", [])
     signature = (
-        "(" + "".join(_descriptor(p["type"]) for p in params) + ")"
+        "("
+        + "".join(_descriptor(p["type"]) for p in params)
+        + ")"
         + _descriptor(mj.get("returns", {}).get("type"))
     )
     where = f"{classname}.{name}:{signature}"
@@ -590,7 +613,9 @@ def _method_policy(
         if a.type == CASE
         for inp, _, out in [a.values["value"].rpartition("->")]
     )
-    tags = frozenset(tag for a in annotations if a.type == TAG for tag in a.values.get("value", []))
+    tags = frozenset(
+        tag for a in annotations if a.type == TAG for tag in a.values.get("value", [])
+    )
     return_sec = _find(annotations, SEC)
     return_clearance = (
         _label(product, return_sec, where=f"{where} return") if return_sec else None

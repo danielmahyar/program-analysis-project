@@ -57,7 +57,9 @@ the same file `suite.findmethod` uses.
 ```python
 import jpamb
 
-methodid = jpamb.getmethodid("my-analysis", "1.0", "group", ["static"], for_science=False)
+methodid = jpamb.getmethodid(
+    "my-analysis", "1.0", "group", ["static"], for_science=False
+)
 suite, eff = jpamb.setup()
 
 policy = suite.security_policy(methodid.classname, eff=eff)
@@ -66,14 +68,16 @@ if policy is not None:
     method = policy.method(methodid)
 
     # Labels of the inputs; param_slots says which local variable holds each one
-    method.param_labels          # e.g. ((Oncology, Trusted), (Psych, Untrusted))
-    method.initial_locals(lattice, max_locals=suite.method_max_locals(methodid, eff=eff))
-    method.return_clearance      # a label, or None
+    method.param_labels  # e.g. ((Oncology, Trusted), (Psych, Untrusted))
+    method.initial_locals(
+        lattice, max_locals=suite.method_max_locals(methodid, eff=eff)
+    )
+    method.return_clearance  # a label, or None
 
     # At an invoke instruction: is the called method a sink, and what may flow into it?
     sink = policy.sink(called_methodid)  # None unless it is a sink of this class
     if sink is not None and not lattice.le(argument_label, sink.param_labels[0]):
-        ...                              # leak: "assertion error"
+        ...  # leak: "assertion error"
 ```
 
 | Python | Meaning |
