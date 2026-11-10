@@ -366,45 +366,37 @@ class Suite:
                     else:
                         eff.error(f"Incorrect (got {res.strip()}) expected {case}")
 
-    def run_benchmark(self, *, docker: DockerRunner, max_steps: int = 100, eff: Effect):
+    def run_benchmark(
+        self,
+        dynamic: interpret.Config | None = None,
+        *,
+        docker: DockerRunner,
+        max_steps: int = 100,
+        eff: Effect,
+    ):
         """Write the benchmark file: the results of every case, and the
-        instructions reached in its first `max_steps` steps, traced on the JVM
-        (`jpamb.Runtime --trace`). An interpreter must cover those instructions."""
+        instructions reached in its first `max_steps` steps. An interpreter must
+        cover those instructions.
+
+        By default every case is traced on the JVM (`jpamb.Runtime --trace`).
+        With `dynamic`, the instructions are instead the steps that interpreter
+        reports (within its own `max_steps`)."""
         with eff.context("Benchmark"):
-            res = docker.run(
-                [
-                    "java",
-                    "-cp",
-                    self.runtime_classpath,
-                    "-ea",
-                    "jpamb.Runtime",
-                    "--trace",
-                    str(max_steps),
-                ],
-                timeout=600,
-                eff=eff,
-            )
-            traces = {}
-            for line in res.splitlines():
-                trace = json.loads(line)
-                traces[Case.decode(trace["case"]).experiment] = trace
+            traces = None
+            if dynamic is None:
+                traces = self._trace_cases(docker=docker, max_steps=max_steps, eff=eff)
 
             experiments = OrderedDict()
 
             entries = {}
             for case in self.cases(eff=eff):
                 with eff.context(case):
-                    trace = traces.get(case.experiment)
-                    if trace is None:
-                        eff.error(f"No trace for {case.experiment}")
+                    if traces is not None:
+                        reached = self._traced_reach(case, traces, eff=eff)
+                    else:
+                        reached = self._interpreted_reach(case, dynamic, eff=eff)
+                    if reached is None:
                         continue
-                    if trace["result"] is not None and trace["result"] != case.result:
-                        eff.error(f"Traced {case} but got {trace['result']}")
-
-                    reached = {
-                        jvm.AbsMethodID.decode(m): set(offsets)
-                        for m, offsets in trace["coverage"].items()
-                    }
 
                     coverage = OrderedDict()
                     for m in sorted(reached):
@@ -436,6 +428,58 @@ class Suite:
         self.benchmark_file.write_text(
             sexpr.pretty(sexpr.sexpr(Benchmark(experiments)), indent=2)
         )
+
+    def _trace_cases(
+        self, *, docker: DockerRunner, max_steps: int, eff: Effect
+    ) -> dict[Experiment, dict]:
+        """Run every case on the JVM with coverage probes, and return each
+        case's trace (`jpamb.Runtime --trace`) by its experiment."""
+        res = docker.run(
+            [
+                "java",
+                "-cp",
+                self.runtime_classpath,
+                "-ea",
+                "jpamb.Runtime",
+                "--trace",
+                str(max_steps),
+            ],
+            timeout=600,
+            eff=eff,
+        )
+        traces = {}
+        for line in res.splitlines():
+            trace = json.loads(line)
+            traces[Case.decode(trace["case"]).experiment] = trace
+        return traces
+
+    def _traced_reach(
+        self, case: Case, traces: dict[Experiment, dict], *, eff: Effect
+    ) -> dict[jvm.AbsMethodID, set[int]] | None:
+        """The instructions per method a case reached on the JVM."""
+        trace = traces.get(case.experiment)
+        if trace is None:
+            eff.error(f"No trace for {case.experiment}")
+            return None
+        if trace["result"] is not None and trace["result"] != case.result:
+            eff.error(f"Traced {case} but got {trace['result']}")
+        return {
+            jvm.AbsMethodID.decode(m): set(offsets)
+            for m, offsets in trace["coverage"].items()
+        }
+
+    def _interpreted_reach(
+        self, case: Case, dynamic: interpret.Config, *, eff: Effect
+    ) -> dict[jvm.AbsMethodID, set[int]] | None:
+        """The instructions per method an interpreter reports for a case."""
+        result = dynamic.run_experiment(case.experiment, workdir=self.workdir, eff=eff)
+        if result.response is None:
+            eff.error(f"No response for {case.experiment}")
+            return None
+        reached = {}
+        for step in result.response.steps:
+            reached.setdefault(step.pc.method, set()).add(step.pc.offset)
+        return reached
 
     def document(self, *, eff: Effect):
         with eff.context("Documenting"):

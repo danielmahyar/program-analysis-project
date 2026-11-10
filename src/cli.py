@@ -2,6 +2,7 @@ import dataclasses
 import json
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -13,6 +14,10 @@ import jvm
 import sexpr
 from jpamb.report import write_report
 from jpamb.utils import DockerRunner, Effect
+
+# `jpamb build --benchmark` without a tool (or with this name) traces the cases
+# on the JVM instead of running an interpreter.
+JVM_TRACE = "jvm"
 
 
 @dataclasses.dataclass
@@ -436,12 +441,22 @@ def validate(ctx, kind, report, format):
     default=None,
 )
 @click.option(
-    "--benchmark / --no-benchmark",
-    help="trace every case on the JVM and write the benchmark file.",
+    "--benchmark",
+    is_flag=False,
+    flag_value=JVM_TRACE,
     default=None,
+    metavar="[TOOL]",
+    help="write the benchmark file. Alone (or as `--benchmark jvm`) it traces "
+    "every case on the JVM; with TOOL it records the steps that interpreter takes.",
+)
+@click.option(
+    "--no-benchmark",
+    is_flag=True,
+    default=False,
+    help="do everything else, but do not write the benchmark file.",
 )
 @click.pass_obj
-def build(ctx, compile, document, test, benchmark):
+def build(ctx, compile, document, test, benchmark, no_benchmark):
     """Rebuild all benchmarks."""
 
     eff = ctx.eff
@@ -450,11 +465,34 @@ def build(ctx, compile, document, test, benchmark):
         eff.warning(f"Changing to {ctx.suite.workdir}")
         os.chdir(ctx.suite.workdir)
 
+    if no_benchmark:
+        if benchmark is not None:
+            raise click.UsageError("--benchmark and --no-benchmark cannot be combined")
+        benchmark = False
+
     if not any(s for s in [compile, document, test, benchmark]):
         compile = compile is None
         document = document is None
         test = test is None
-        benchmark = benchmark is None
+        benchmark = JVM_TRACE if benchmark is None else benchmark
+
+    # Resolve the interpreter before anything slow runs, so a missing or broken
+    # tool fails at once instead of after the compile.
+    interpreter = None
+    if benchmark and benchmark != JVM_TRACE:
+        tool_bin = shutil.which(benchmark)
+        if not tool_bin:
+            eff.error(f"did not have {benchmark} installed...")
+            sys.exit(1)
+
+        interpreter = jpamb.interpret.Config.from_cmd(
+            (tool_bin,),
+            experiments=[],
+            max_steps=100,
+            timeout=5.0,
+            eff=eff,
+            abstract=False,
+        )
 
     docker = DockerRunner.create(ctx.suite.workdir, ctx.docker_image, eff=ctx.eff)
 
@@ -462,7 +500,7 @@ def build(ctx, compile, document, test, benchmark):
         ctx.suite.build(docker=docker, eff=ctx.eff)
 
     if benchmark:
-        ctx.suite.run_benchmark(docker=docker, eff=ctx.eff)
+        ctx.suite.run_benchmark(interpreter, docker=docker, eff=ctx.eff)
 
     if document:
         ctx.suite.document(eff=ctx.eff)

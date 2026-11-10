@@ -49,15 +49,27 @@ this either use podman or change the permissions after.
 Finally, when everything looks good you should update the benchmark file, which contains
 information about which instructions are covered by what.
 
-In this fork the benchmark is not made with an interpreter. Instead every case is
-run on the JVM with a coverage probe before each instruction
-(`jpamb.Runtime --trace`), so the file records what the code actually does, and
-interpreters are graded against that. A plain `uv run jpamb build` also rebuilds
-the benchmark; to only rebuild it (after compiling) run:
+In this fork the benchmark is made by running every case on the JVM with a
+coverage probe before each instruction (`jpamb.Runtime --trace`), so the file
+records what the code actually does, and interpreters are graded against that.
+A plain `uv run jpamb build` also rebuilds the benchmark; to only rebuild it
+(after compiling) run:
 
 ```
 $ uv run jpamb build --benchmark
 ```
+
+As upstream, you can instead record the steps an interpreter takes:
+
+```
+$ uv run jpamb build --benchmark <your_interpreter>
+```
+
+This is useful for comparing an interpreter with the JVM: run it, look at
+`git diff target/stats/benchmark.sexp`, and restore the file afterwards. Do not
+commit a benchmark made this way, since it would grade interpreters against that
+interpreter instead of the JVM (CI rebuilds the benchmark on the JVM and fails if
+it differs).
 
 Please inspect the `target/stats/benchmark.sexp` file and ensure that only the
 newly added cases has changed.
