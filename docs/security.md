@@ -30,18 +30,23 @@ uv run jpamb build       # compile, list cases, decompile, benchmark, document, 
 uv run jpamb checkhealth
 ```
 
-Run `uv run jpamb build` again after changing something in `cases/`. Running an
-analysis needs neither Docker nor Java. The steps, all inside the JPAMB docker
-image:
+The compiled classes and the decompiled bytecode (`target/**/*.class` and
+`target/**/*.json`) are not in git, and every analysis reads the decompiled
+bytecode. So run `uv run jpamb build` after cloning, and again after pulling or
+making a change to `cases/`. Running an analysis afterwards needs neither
+Docker nor Java. The case list, the benchmark and `OPCODES.md` are committed;
+commit them again when the build changes them.
 
-| Step | Writes |
-| --- | --- |
-| Compile `cases/` (with the ASM jars in `lib/`) | `target/classes/` |
-| List the cases | `target/stats/cases.txt` |
-| Decompile every class, annotations included | `target/decompiled/` |
-| Trace every case on the JVM (`jpamb.Runtime --trace 100`) | `target/stats/benchmark.sexp` |
-| Count the opcodes of the cases | `OPCODES.md` |
-| Run every case and compare with its `@Case` | (log) |
+The steps, all inside the JPAMB docker image:
+
+| Step | Writes | In git |
+| --- | --- | --- |
+| Compile `cases/` (with the ASM jars in `lib/`) | `target/classes/` | no |
+| List the cases | `target/stats/cases.txt` | yes |
+| Decompile every class, annotations included | `target/decompiled/` | no |
+| Trace every case on the JVM (`jpamb.Runtime --trace 100`) | `target/stats/benchmark.sexp` | yes |
+| Count the opcodes of the cases | `OPCODES.md` | yes |
+| Run every case and compare with its `@Case` | (log) | |
 
 ## Reading the annotations in an analysis
 
