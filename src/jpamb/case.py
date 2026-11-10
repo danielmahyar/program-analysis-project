@@ -469,6 +469,15 @@ class Control(sexpr.AsSExpr):
     coverage: dict[jvm.AbsMethodID, Coverage]
     results: set[str]
 
+    def __sexpr__(self) -> sexpr.SExpr:
+        # A set of strings iterates in a different order in every process; sort
+        # the results so `jpamb build` writes the same benchmark file each time.
+        return sexpr.data(
+            sexpr.sexprtag(type(self)),
+            coverage=self.coverage,
+            results=sorted(self.results),
+        )
+
     def is_reachable(self, pc: jvm.state.PC) -> bool:
         coverage = self.coverage.get(pc.method)
         return (

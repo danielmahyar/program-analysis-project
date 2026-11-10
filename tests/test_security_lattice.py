@@ -1,24 +1,23 @@
-import sys
-from pathlib import Path
+import pytest
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
+import jpamb
+import jvm
+from jpamb.security import (
+    ClassSecurityPolicy,
+    ProductLattice,
+    SecurityLabel,
+    SecurityLattice,
+)
 
-try:
-    from jpamb.security import (
-        SecurityLattice,
-        ProductLattice,
-        SecurityLabel,
-        BytecodeAnnotationParser,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(PROJECT_ROOT / "src" / "jpamb"))
-    from security import (  # type: ignore
-        SecurityLattice,
-        ProductLattice,
-        SecurityLabel,
-        BytecodeAnnotationParser,
-    )
+suite, eff = jpamb.setup()
+
+SECURITY_CLASSES = ["Clearance", "Compartments", "Hospital", "InfoFlow"]
+
+
+def policy_of(name: str) -> ClassSecurityPolicy:
+    policy = suite.security_policy(jvm.ClassName(f"jpamb.cases.{name}"), eff=eff)
+    assert policy is not None, f"{name} should declare a lattice"
+    return policy
 
 
 def test_single_lattice_construction_and_closure():
@@ -160,11 +159,8 @@ def test_product_lattice():
     assert j["integ"] == "Untrusted"
 
 
-def test_parse_hospital_classfile():
-    classfile = Path("target/classes/jpamb/cases/Hospital.class")
-    assert classfile.exists(), "Hospital.class must be compiled"
-
-    policy = BytecodeAnnotationParser.parse_classfile(classfile)
+def test_parse_hospital():
+    policy = policy_of("Hospital")
 
     assert "conf" in policy.product_lattice.lattices
     assert "integ" in policy.product_lattice.lattices
@@ -209,11 +205,36 @@ def test_parse_hospital_classfile():
     assert prs.return_clearance["conf"] == "Public"
 
 
-def test_parse_infoflow_classfile():
-    classfile = Path("target/classes/jpamb/cases/InfoFlow.class")
-    assert classfile.exists()
+def test_lookup_by_jpamb_method_ids():
+    policy = policy_of("Hospital")
 
-    policy = BytecodeAnnotationParser.parse_classfile(classfile)
+    # The method id an analysis receives from JPAMB
+    process = policy.method(jvm.AbsMethodID.decode("jpamb.cases.Hospital.process:(II)V"))
+    assert process.is_case and not process.is_sink and process.is_static
+    assert process.param_slots == (0, 1)
+    assert ("(6000, 1)", "assertion error") in process.cases
+
+    # The method of an invoke instruction: sinks give their clearances, others None
+    sink = policy.sink(jvm.AbsMethodID.decode("jpamb.cases.Hospital.publicDashboard:(I)V"))
+    assert sink is not None and sink.is_static
+    assert sink.param_labels == (policy.product_lattice.make_label(conf="Public"),)
+    assert policy.sink(jvm.AbsMethodID.decode("jpamb.cases.Hospital.process:(II)V")) is None
+    assert policy.sink(jvm.AbsMethodID.decode("jpamb.cases.Simple.assertFalse:()V")) is None
+
+    assert set(policy.sinks) == {
+        "publicDashboard:(I)V",
+        "oncologyRecords:(I)V",
+        "adminReport:(I)V",
+        "auditLog:(I)V",
+        "billing:(Z)V",
+    }
+
+    with pytest.raises(KeyError):
+        policy.method("noSuchMethod:()V")
+
+
+def test_parse_infoflow():
+    policy = policy_of("InfoFlow")
     assert "conf" in policy.product_lattice.lattices
     assert "integ" in policy.product_lattice.lattices
 
@@ -239,31 +260,139 @@ def test_parse_infoflow_classfile():
 
 
 def test_parse_clearance_and_compartments():
-    c_clearance = Path("target/classes/jpamb/cases/Clearance.class")
-    if c_clearance.exists():
-        policy = BytecodeAnnotationParser.parse_classfile(c_clearance)
-        assert "conf" in policy.product_lattice.lattices
-        conf_lat = policy.product_lattice.lattices["conf"]
-        assert conf_lat.bot == "Unclassified"
-        assert conf_lat.top == "TopSecret"
-        assert conf_lat.le("Restricted", "Secret")  # Transitive closure
+    policy = policy_of("Clearance")
+    conf_lat = policy.product_lattice.lattices["conf"]
+    assert conf_lat.bot == "Unclassified"
+    assert conf_lat.top == "TopSecret"
+    assert conf_lat.le("Restricted", "Secret")  # Transitive closure
+    assert policy.product_lattice.lattices["integ"].levels == ("Trusted", "Partner", "Untrusted")
 
-    c_compartments = Path("target/classes/jpamb/cases/Compartments.class")
-    if c_compartments.exists():
-        policy = BytecodeAnnotationParser.parse_classfile(c_compartments)
-        assert "conf" in policy.product_lattice.lattices
-        conf_lat = policy.product_lattice.lattices["conf"]
-        assert len(conf_lat.levels) == 8
-        assert conf_lat.join("Alpha", "Bravo") == "AlphaBravo"
-        assert conf_lat.join("AlphaBravo", "Charlie") == "All"
+    policy = policy_of("Compartments")
+    conf_lat = policy.product_lattice.lattices["conf"]
+    assert len(conf_lat.levels) == 8
+    assert conf_lat.join("Alpha", "Bravo") == "AlphaBravo"
+    assert conf_lat.join("AlphaBravo", "Charlie") == "All"
 
 
-if __name__ == "__main__":
-    test_single_lattice_construction_and_closure()
-    test_lattice_algebraic_laws()
-    test_integrity_lattice()
-    test_product_lattice()
-    test_parse_hospital_classfile()
-    test_parse_infoflow_classfile()
-    test_parse_clearance_and_compartments()
-    print("All security lattice & bytecode annotation parser tests passed!")
+def test_case_classes_without_lattice_have_no_policy():
+    for name in ["Simple", "Calls", "Arrays", "InformationFlow"]:
+        assert suite.security_policy(jvm.ClassName(f"jpamb.cases.{name}"), eff=eff) is None
+
+
+@pytest.mark.parametrize("name", SECURITY_CLASSES)
+def test_policy_cases_are_served_by_jpamb(name):
+    """Every @Case of a security class is a JPAMB case and is in the benchmark."""
+    policy = policy_of(name)
+    from_policy = {
+        (f"{policy.classname}.{m.id}", inp, out)
+        for m in policy.case_methods.values()
+        for inp, out in m.cases
+    }
+    served = {
+        (f"{c.methodid.classname}.{c.methodid.extension.encode()}", c.input.encode(), c.result)
+        for c in suite.cases(eff=eff)
+        if str(c.methodid.classname) == policy.classname
+    }
+    assert from_policy == served
+
+    benchmark = suite.benchmark(eff=eff)
+    for case in suite.cases(eff=eff):
+        if str(case.methodid.classname) == policy.classname:
+            assert benchmark.experiments[case.experiment].results == {case.result}
+
+
+# Hand-written classes in the decompiled (jvm2json) format
+
+
+def _str(v):
+    return {"type": "string", "value": v}
+
+
+def _ann(type, **values):
+    return {"type": f"jpamb/utils/{type}", "is_runtime_visible": True, "values": values}
+
+
+def _lattice(dim, levels, order, default):
+    return _ann(
+        "Lattice",
+        dim=_str(dim),
+        levels={"type": "array", "value": [_str(x) for x in levels]},
+        order={"type": "array", "value": [_str(x) for x in order]},
+        defaultLevel=_str(default),
+    )
+
+
+def _param(base, *annotations):
+    return {"visible": True, "type": {"base": base, "annotations": []}, "annotations": list(annotations)}
+
+
+def _method(name, params, *annotations, access=("public", "static")):
+    return {
+        "name": name,
+        "access": list(access),
+        "annotations": list(annotations),
+        "params": params,
+        "returns": {"type": None, "annotations": []},
+    }
+
+
+def _class(annotations, methods):
+    return {"name": "jpamb/cases/Fake", "annotations": annotations, "methods": methods}
+
+
+LOW_HIGH = _lattice("conf", ["Low", "High"], ["Low <= High"], "Low")
+
+
+def test_single_lattice_without_container():
+    policy = ClassSecurityPolicy.from_json(
+        _class([LOW_HIGH], [_method("sink", [_param("int", _ann("Sec", conf=_str("Low")))])])
+    )
+    assert policy is not None
+    assert list(policy.product_lattice.lattices) == ["conf"]
+    assert policy.sink("sink:(I)V").param_labels == (SecurityLabel(conf="Low"),)
+
+
+def test_parameter_slots_of_instance_method_with_long():
+    policy = ClassSecurityPolicy.from_json(
+        _class([LOW_HIGH], [_method("m", [_param("long"), _param("int")], access=("public",))])
+    )
+    m = policy.method("m:(JI)V")
+    assert m.param_slots == (1, 3)
+    bot = policy.product_lattice.bot
+    assert m.initial_locals(policy.product_lattice, max_locals=5) == (
+        bot, m.param_labels[0], bot, m.param_labels[1], bot,
+    )
+
+
+@pytest.mark.parametrize(
+    ("classjson", "message"),
+    [
+        (
+            _class([LOW_HIGH], [_method("m", [_param("int", _ann("Sec", conf=_str("Secret")))])]),
+            "Unknown level 'Secret'",
+        ),
+        (
+            _class([LOW_HIGH], [_method("m", [_param("int", _ann("Sec", integ=_str("Trusted")))])]),
+            "Unknown dimension 'integ'",
+        ),
+        (
+            _class([], [_method("m", [_param("int", _ann("Sec", conf=_str("Low")))])]),
+            "declares no @Lattice",
+        ),
+        (
+            _class([_lattice("color", ["Red"], [], "Red")], []),
+            "not one of",
+        ),
+        (
+            _class([_lattice("conf", ["Low", "High"], ["Low < High"], "Low")], []),
+            "not of the form",
+        ),
+        (
+            _class([LOW_HIGH, LOW_HIGH], []),
+            "declared twice",
+        ),
+    ],
+)
+def test_inconsistent_annotations_are_rejected(classjson, message):
+    with pytest.raises(ValueError, match=message):
+        ClassSecurityPolicy.from_json(classjson)

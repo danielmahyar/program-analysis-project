@@ -26,12 +26,106 @@ jpamb.cases.Calls.callsAssertIf:(Z)V                         (false) -> assertio
 jpamb.cases.Calls.callsAssertIf:(Z)V                         (true) -> ok
 jpamb.cases.Calls.callsAssertIfWithTrue:()V                  () -> ok
 jpamb.cases.Calls.callsAssertTrue:()V                        () -> ok
+jpamb.cases.Clearance.flowDownOneLevel:(I)V                  (1) -> assertion error
+jpamb.cases.Clearance.flowUpTwoLevels:(I)V                   (1) -> ok
+jpamb.cases.Clearance.joinBecomesSecret:(II)V                (1, 2) -> assertion error
+jpamb.cases.Clearance.joinStaysConfidential:(II)V            (1, 2) -> ok
+jpamb.cases.Clearance.nestedBranches:(II)V                   (-1, 1) -> ok
+jpamb.cases.Clearance.nestedBranches:(II)V                   (1, -1) -> assertion error
+jpamb.cases.Clearance.nestedBranches:(II)V                   (1, 1) -> assertion error
+jpamb.cases.Clearance.partnerCommand:(I)V                    (1) -> assertion error
+jpamb.cases.Clearance.partnerToPartnerFeed:(I)V              (1) -> ok
+jpamb.cases.Clearance.secretBranchInLoop:(II)V               (0, 5) -> ok
+jpamb.cases.Clearance.secretBranchInLoop:(II)V               (3, -1) -> ok
+jpamb.cases.Clearance.secretBranchInLoop:(II)V               (3, 5) -> assertion error
+jpamb.cases.Clearance.sequentialBranches:(II)V               (-1, -1) -> ok
+jpamb.cases.Clearance.sequentialBranches:(II)V               (1, 1) -> ok
+jpamb.cases.Clearance.topSecretBroadcast:(I)V                (1) -> assertion error
+jpamb.cases.Clearance.trustedCommand:(II)V                   (1, 2) -> ok
+jpamb.cases.Clearance.untrustedToPartnerFeed:(I)V            (1) -> assertion error
+jpamb.cases.Compartments.explicitDominatesImplicit:(II)V     (-1, 5) -> ok
+jpamb.cases.Compartments.explicitDominatesImplicit:(II)V     (1, 5) -> assertion error
+jpamb.cases.Compartments.implicitOutsideSink:(II)V           (-1, 5) -> ok
+jpamb.cases.Compartments.implicitOutsideSink:(II)V           (1, 5) -> assertion error
+jpamb.cases.Compartments.implicitWithinSink:(II)V            (-1, 5) -> ok
+jpamb.cases.Compartments.implicitWithinSink:(II)V            (1, 5) -> ok
+jpamb.cases.Compartments.incomparableSink:(I)V               (1) -> assertion error
+jpamb.cases.Compartments.joinIsLeastUpperBound:(II)V         (1, 2) -> assertion error
+jpamb.cases.Compartments.joinOfThree:(III)V                  (1, 2, 3) -> assertion error
+jpamb.cases.Compartments.joinOfThreeToTop:(III)V             (1, 2, 3) -> ok
+jpamb.cases.Compartments.joinOfTwo:(II)V                     (1, 2) -> ok
+jpamb.cases.Compartments.loopGuardAddsCompartment:(II)V      (0, 4) -> ok
+jpamb.cases.Compartments.loopGuardAddsCompartment:(II)V      (2, 4) -> assertion error
 jpamb.cases.Dependent.badNormalizedDistance:(II)I            (0, 0) -> divide by zero
 jpamb.cases.Dependent.badNormalizedDistance:(II)I            (1, 1) -> ok
 jpamb.cases.Dependent.divisionLoop:(I)V                      (0) -> ok
 jpamb.cases.Dependent.divisionLoop:(I)V                      (1024) -> assertion error
 jpamb.cases.Dependent.normalizedDistance:(II)I               (0, 0) -> ok
 jpamb.cases.Dependent.safeDivByN:(I)I                        (0) -> ok
+jpamb.cases.Hospital.adminCombinesDepartments:(II)V          (10, 20) -> ok
+jpamb.cases.Hospital.approveBilling:(II)V                    (150, 3) -> assertion error
+jpamb.cases.Hospital.approveBilling:(II)V                    (50, 3) -> assertion error
+jpamb.cases.Hospital.approveBillingTrusted:(I)V              (3) -> ok
+jpamb.cases.Hospital.combinedToOneDepartment:(II)V           (10, 20) -> assertion error
+jpamb.cases.Hospital.compartmentLeak:(I)V                    (4) -> assertion error
+jpamb.cases.Hospital.deadBranchLeak:(I)V                     (7000) -> ok
+jpamb.cases.Hospital.implicitCompartmentLeak:(I)V            (10) -> ok
+jpamb.cases.Hospital.implicitCompartmentLeak:(I)V            (40) -> assertion error
+jpamb.cases.Hospital.oncologyOnly:(II)V                      (25, 70) -> ok
+jpamb.cases.Hospital.oncologyOnly:(II)V                      (5, 30) -> ok
+jpamb.cases.Hospital.process:(II)V                           (0, 0) -> assertion error
+jpamb.cases.Hospital.process:(II)V                           (6000, 1) -> assertion error
+jpamb.cases.Hospital.psychSessionCount:(I)V                  (0) -> ok
+jpamb.cases.Hospital.psychSessionCount:(I)V                  (3) -> assertion error
+jpamb.cases.Hospital.publicRiskScore:(I)I                    (35) -> assertion error
+jpamb.cases.Hospital.sameValueBothBranches:(I)V              (-1) -> assertion error
+jpamb.cases.Hospital.sameValueBothBranches:(I)V              (1) -> assertion error
+jpamb.cases.Hospital.trustedAudit:(I)V                       (0) -> ok
+jpamb.cases.Hospital.trustedAudit:(I)V                       (3) -> ok
+jpamb.cases.Hospital.trustedButSecret:(I)V                   (9) -> assertion error
+jpamb.cases.Hospital.untrustedControlsAudit:(Z)V             (false) -> ok
+jpamb.cases.Hospital.untrustedControlsAudit:(Z)V             (true) -> assertion error
+jpamb.cases.InfoFlow.deadBranchLeak:(I)V                     (0) -> ok
+jpamb.cases.InfoFlow.deadBranchLeak:(I)V                     (7) -> ok
+jpamb.cases.InfoFlow.explicitLeak:(I)V                       (0) -> assertion error
+jpamb.cases.InfoFlow.explicitLeak:(I)V                       (42) -> assertion error
+jpamb.cases.InfoFlow.explicitSafe:(I)V                       (0) -> ok
+jpamb.cases.InfoFlow.explicitSafe:(I)V                       (42) -> ok
+jpamb.cases.InfoFlow.implicitLeak:(Z)V                       (false) -> ok
+jpamb.cases.InfoFlow.implicitLeak:(Z)V                       (true) -> assertion error
+jpamb.cases.InfoFlow.implicitReturn:(I)I                     (-5) -> assertion error
+jpamb.cases.InfoFlow.implicitReturn:(I)I                     (5) -> assertion error
+jpamb.cases.InfoFlow.integrityExplicit:(I)V                  (1) -> assertion error
+jpamb.cases.InfoFlow.integrityImplicit:(Z)V                  (false) -> ok
+jpamb.cases.InfoFlow.integrityImplicit:(Z)V                  (true) -> assertion error
+jpamb.cases.InfoFlow.integritySafe:(I)V                      (1) -> ok
+jpamb.cases.InfoFlow.launderedThroughArithmetic:(I)V         (0) -> assertion error
+jpamb.cases.InfoFlow.launderedThroughArithmetic:(I)V         (42) -> assertion error
+jpamb.cases.InfoFlow.loopCountLeak:(I)V                      (0) -> ok
+jpamb.cases.InfoFlow.loopCountLeak:(I)V                      (3) -> assertion error
+jpamb.cases.InfoFlow.loopThenConstant:(I)V                   (0) -> ok
+jpamb.cases.InfoFlow.loopThenConstant:(I)V                   (3) -> ok
+jpamb.cases.InfoFlow.overwrittenBeforeSink:(I)V              (0) -> ok
+jpamb.cases.InfoFlow.overwrittenBeforeSink:(I)V              (42) -> ok
+jpamb.cases.InfoFlow.pcRestoredAfterBranch:(I)V              (-5) -> ok
+jpamb.cases.InfoFlow.pcRestoredAfterBranch:(I)V              (5) -> ok
+jpamb.cases.InfoFlow.sinkUnderSecretBranch:(Z)V              (false) -> ok
+jpamb.cases.InfoFlow.sinkUnderSecretBranch:(Z)V              (true) -> assertion error
+jpamb.cases.InfoFlow.unannotatedInput:(I)V                   (1) -> assertion error
+jpamb.cases.InformationFlow.compartmentLeak:(III)V           (25, 10, 20) -> ok
+jpamb.cases.InformationFlow.compartmentLeak:(III)V           (25, 10, 40) -> assertion error
+jpamb.cases.InformationFlow.compartmentLeak:(III)V           (25, 40, 50) -> ok
+jpamb.cases.InformationFlow.explicitLeak:(II)V               (4200, 1300) -> assertion error
+jpamb.cases.InformationFlow.explicitLeak:(II)V               (4200, 4900) -> ok
+jpamb.cases.InformationFlow.implicitBranchLeak:(II)V         (100, 200) -> ok
+jpamb.cases.InformationFlow.implicitBranchLeak:(II)V         (6000, 0) -> assertion error
+jpamb.cases.InformationFlow.implicitBranchLeak:(II)V         (6000, 7000) -> ok
+jpamb.cases.InformationFlow.implicitLoopLeak:(II)V           (-1, -4) -> ok
+jpamb.cases.InformationFlow.implicitLoopLeak:(II)V           (3, 3) -> ok
+jpamb.cases.InformationFlow.implicitLoopLeak:(II)V           (3, 5) -> assertion error
+jpamb.cases.InformationFlow.integrityViolation:(IZZ)V        (0, false, false) -> ok
+jpamb.cases.InformationFlow.integrityViolation:(IZZ)V        (3, true, false) -> assertion error
+jpamb.cases.InformationFlow.integrityViolation:(IZZ)V        (3, true, true) -> ok
 jpamb.cases.Loops.forever:()V                                () -> *
 jpamb.cases.Loops.neverAsserts:()V                           () -> *
 jpamb.cases.Loops.neverDivides:()I                           () -> *
