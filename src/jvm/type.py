@@ -95,6 +95,8 @@ class Type(ABC):
                     return Int()
                 case "char":
                     return Char()
+                case "byte":
+                    return Byte()
                 case "short":
                     return Short()
                 case "ref":
@@ -133,6 +135,10 @@ class Type(ABC):
                 return Int()
             case "char":
                 return Char()
+            case "byte":
+                return Byte()
+            case "short":
+                return Short()
             case "double":
                 return Double()
             case "long":

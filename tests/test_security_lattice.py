@@ -1,3 +1,5 @@
+from itertools import product
+
 import pytest
 
 import jpamb
@@ -436,3 +438,128 @@ def test_parameter_slots_of_instance_method_with_long():
 def test_inconsistent_annotations_are_rejected(classjson, message):
     with pytest.raises(ValueError, match=message):
         ClassSecurityPolicy.from_json(classjson)
+
+
+@pytest.mark.parametrize(
+    "shape", ["singleton", "chain", "diamond", "pentagon", "powerset"]
+)
+def test_configurable_confidentiality_lattice_laws(shape):
+    shapes = {
+        "singleton": (("P",), ()),
+        "chain": (("P", "M", "T"), (("P", "M"), ("M", "T"))),
+        "diamond": (
+            ("P", "A", "B", "T"),
+            (("P", "A"), ("P", "B"), ("A", "T"), ("B", "T")),
+        ),
+        "pentagon": (
+            ("P", "A", "B", "C", "T"),
+            (("P", "A"), ("A", "B"), ("B", "T"), ("P", "C"), ("C", "T")),
+        ),
+        "powerset": (
+            tuple(str(x) for x in range(8)),
+            tuple(
+                (str(a), str(b))
+                for a, b in product(range(8), repeat=2)
+                if a != b and a & b == a
+            ),
+        ),
+    }
+    levels, edges = shapes[shape]
+    lattice = SecurityLattice("conf", levels, edges, levels[0])
+    assert lattice.join_all([]) == lattice.bot
+    assert lattice.meet_all([]) == lattice.top
+    for a, b, c in product(levels, repeat=3):
+        assert lattice.contains(lattice.join(a, b))
+        assert lattice.contains(lattice.meet(a, b))
+        assert lattice.join(a, a) == lattice.meet(a, a) == a
+        assert lattice.join(a, b) == lattice.join(b, a)
+        assert lattice.meet(a, b) == lattice.meet(b, a)
+        assert lattice.join(lattice.join(a, b), c) == lattice.join(
+            a, lattice.join(b, c)
+        )
+        assert lattice.meet(lattice.meet(a, b), c) == lattice.meet(
+            a, lattice.meet(b, c)
+        )
+        assert lattice.join(a, lattice.meet(a, b)) == a
+        assert lattice.meet(a, lattice.join(a, b)) == a
+        assert (
+            lattice.le(a, b) == (lattice.join(a, b) == b) == (lattice.meet(a, b) == a)
+        )
+        if lattice.le(a, b):
+            assert lattice.le(lattice.join(a, c), lattice.join(b, c))
+        if lattice.le(a, c) and lattice.le(b, c):
+            assert lattice.le(lattice.join(a, b), c)
+        if lattice.le(c, a) and lattice.le(c, b):
+            assert lattice.le(c, lattice.meet(a, b))
+
+
+@pytest.mark.parametrize(
+    ("levels", "edges", "default"),
+    [
+        ((), (), "P"),
+        (("P", "P"), (), "P"),
+        (("P", "T"), (("P", "T"), ("T", "P")), "P"),
+        (("P", "T"), (("P", "Unknown"),), "P"),
+        (("P", "T"), (), "P"),
+        (("P", "T"), (("P", "T"),), "Unknown"),
+        (
+            ("P", "A", "B", "X", "Y", "T"),
+            (
+                ("P", "A"),
+                ("P", "B"),
+                ("A", "X"),
+                ("A", "Y"),
+                ("B", "X"),
+                ("B", "Y"),
+                ("X", "T"),
+                ("Y", "T"),
+            ),
+            "P",
+        ),
+    ],
+)
+def test_invalid_confidentiality_lattices_are_rejected(levels, edges, default):
+    with pytest.raises(ValueError):
+        SecurityLattice("conf", levels, edges, default)
+
+
+def test_unknown_labels_are_rejected_consistently():
+    lattice = SecurityLattice("conf", ("P", "T"), (("P", "T"),), "P")
+    assert not lattice.contains("Unknown")
+    for operation in (lattice.le, lattice.join, lattice.meet):
+        with pytest.raises(ValueError, match="Unknown level"):
+            operation("Unknown", "P")
+
+
+def test_policy_keeps_explicit_constraints_and_uninitialized_slots():
+    policy = ClassSecurityPolicy.from_json(
+        _class(
+            [LOW_HIGH],
+            [
+                _method(
+                    "m", [_param("int", _ann("Sec", conf=_str("High"))), _param("int")]
+                ),
+            ],
+        )
+    )
+    method = policy.method("m:(II)V")
+    assert method.param_constraints == (SecurityLabel(conf="High"), None)
+    assert method.initial_locals(policy.product_lattice, 3, uninitialized=True) == (
+        SecurityLabel(conf="High"),
+        SecurityLabel(conf="Low"),
+        None,
+    )
+
+
+@pytest.mark.parametrize("feature", ["exceptions", "synchronized", "local_annotation"])
+def test_policy_retains_unsupported_security_features(feature):
+    method = _method("m", [])
+    method["code"] = {}
+    if feature == "exceptions":
+        method["code"]["exceptions"] = [{"start": 0, "end": 1, "handler": 2}]
+    elif feature == "synchronized":
+        method["access"].append("synchronized")
+    else:
+        method["code"]["annotations"] = [{"annotation": _ann("Sec", conf=_str("Low"))}]
+    policy = ClassSecurityPolicy.from_json(_class([LOW_HIGH], [method]))
+    assert policy.method("m:()V").unsupported_features

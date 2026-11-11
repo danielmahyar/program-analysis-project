@@ -271,6 +271,8 @@ class Dup(Opcode):
     def real(self) -> str:
         if self.words == 1:
             return "dup"
+        if self.words == 2:
+            return "dup2"
         return super().real()
 
     def semantics(self) -> str | None:
@@ -288,6 +290,52 @@ class Dup(Opcode):
 
     def __str__(self):
         return f"dup {self.words}"
+
+
+@dataclass(frozen=True, order=True)
+class Pop(Opcode):
+    """Discard one or two category-1 stack values (the int/boolean core)."""
+
+    words: int
+
+    @classmethod
+    def from_json(cls, json: dict) -> Opcode:
+        return cls(offset=json["offset"], words=json["words"])
+
+    def real(self) -> str:
+        if self.words in (1, 2):
+            return "pop" if self.words == 1 else "pop2"
+        return super().real()
+
+    def semantics(self) -> str | None:
+        return None
+
+    def mnemonic(self) -> str:
+        return self.real()
+
+    def __str__(self):
+        return self.real()
+
+
+@dataclass(frozen=True, order=True)
+class Swap(Opcode):
+    """Exchange the top two category-1 stack values."""
+
+    @classmethod
+    def from_json(cls, json: dict) -> Opcode:
+        return cls(offset=json["offset"])
+
+    def real(self) -> str:
+        return "swap"
+
+    def semantics(self) -> str | None:
+        return None
+
+    def mnemonic(self) -> str:
+        return self.real()
+
+    def __str__(self):
+        return self.real()
 
 
 @dataclass(frozen=True, order=True)
@@ -341,6 +389,10 @@ class Cast(Opcode):
         match self.from_:
             case jvm_type.Int():
                 match self.to_:
+                    case jvm_type.Byte():
+                        return "i2b"
+                    case jvm_type.Char():
+                        return "i2c"
                     case jvm_type.Short():
                         return "i2s"
 
@@ -666,6 +718,12 @@ class BinaryOpr(enum.Enum):
     Mul = enum.auto()
     Div = enum.auto()
     Rem = enum.auto()
+    And = enum.auto()
+    Or = enum.auto()
+    Xor = enum.auto()
+    Shl = enum.auto()
+    Shr = enum.auto()
+    Ushr = enum.auto()
 
     @staticmethod
     def from_str(name: str) -> "BinaryOpr":
@@ -692,6 +750,12 @@ BIN_OPRS = {
     "mul": BinaryOpr.Mul,
     "div": BinaryOpr.Div,
     "rem": BinaryOpr.Rem,
+    "and": BinaryOpr.And,
+    "or": BinaryOpr.Or,
+    "xor": BinaryOpr.Xor,
+    "shl": BinaryOpr.Shl,
+    "shr": BinaryOpr.Shr,
+    "ushr": BinaryOpr.Ushr,
 }
 
 
@@ -723,6 +787,15 @@ class Binary(Opcode):
                 return "imul"
             case (jvm_type.Int(), BinaryOpr.Sub):
                 return "isub"
+            case (jvm_type.Int(), op) if op in (
+                BinaryOpr.And,
+                BinaryOpr.Or,
+                BinaryOpr.Xor,
+                BinaryOpr.Shl,
+                BinaryOpr.Shr,
+                BinaryOpr.Ushr,
+            ):
+                return "i" + op.name.lower()
         raise NotImplementedError(f"Unhandled real {self!r}")
 
     def semantics(self) -> str | None:
@@ -1199,6 +1272,8 @@ OPCODES = {
     "newarray": NewArray,
     "new-array": NewArray,
     "dup": Dup,
+    "pop": Pop,
+    "swap": Swap,
     "array_store": ArrayStore,
     "array-store": ArrayStore,
     "cast": Cast,
@@ -1212,6 +1287,7 @@ OPCODES = {
     "invoke_special": InvokeSpecial,
     "store": Store,
     "binary": Binary,
+    "bitopr": Binary,
     "load": Load,
     "if": If,
     "get": Get,

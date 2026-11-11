@@ -1,3 +1,4 @@
+import os
 import sys
 from collections import deque
 from collections.abc import Iterable
@@ -7,7 +8,7 @@ from abstractions import SignSet
 
 import jpamb
 import sexpr
-from jpamb import jvm
+from jpamb import confidentiality, jvm
 from jvm.state import PC, StackInt
 
 
@@ -87,11 +88,10 @@ def manystep(
 
         case jvm.Binary(operant=op):
             [v1, v2], after = state.pop(2)
-            for res in SignSet.arithmetic(v1, v2, op):
-                if isinstance(res, str):
-                    yield res
-                else:
-                    yield (pc + 1, after.push(res))
+            result, errors = SignSet.arithmetic(v1, v2, op)
+            yield from errors
+            if result.signs:
+                yield (pc + 1, after.push(result))
 
         case jvm.Return(type=None):
             yield "ok"
@@ -103,6 +103,9 @@ def manystep(
         case jvm.New(classname=jvm.ClassName("java.lang.AssertionError")):
             # Hack -- if we create an assertion error, we probably also throw it.
             yield "assertion error"
+
+        case _:
+            yield "unknown"
 
 
 def initialstate(
@@ -152,7 +155,11 @@ class AbstractInterpreter:
 
         finals = set()
 
-        for res in manystep(self.bc, pc, self.states[pc]):
+        try:
+            results = list(manystep(self.bc, pc, self.states[pc]))
+        except NotImplementedError:
+            results = ["unknown"]
+        for res in results:
             if isinstance(res, str):
                 finals.add(res)
             else:
@@ -170,6 +177,82 @@ class AbstractInterpreter:
         return pc, finals
 
 
+def security_config() -> confidentiality.Config:
+    limit = os.environ.get("JPAMB_CONF_MAX_STEPS")
+    return confidentiality.Config(
+        return_clearance=os.environ.get("JPAMB_CONF_RETURN_CLEARANCE"),
+        max_steps=int(limit) if limit is not None else None,
+    )
+
+
+def unknown_result(exc: Exception) -> confidentiality.Result:
+    return confidentiality.Result(
+        "unsupported",
+        (confidentiality.Diagnostic(-1, "unsupported", str(exc)),),
+        {},
+        0,
+    )
+
+
+def report_security(result: confidentiality.Result):
+    print(
+        f"confidentiality: {result.status} after {result.steps} steps", file=sys.stderr
+    )
+    for diagnostic in result.diagnostics:
+        print(
+            f"  {diagnostic.offset}: {diagnostic.kind}: {diagnostic.message}",
+            file=sys.stderr,
+        )
+    leaks = any(d.kind in ("explicit", "implicit") for d in result.diagnostics)
+    for query in jpamb.QUERIES:
+        # This domain answers confidentiality, not numeric runtime outcomes.
+        prediction = "unknown"
+        if query == "assertion error":
+            prediction = "maybe" if leaks else "no" if result.safe else "unknown"
+        print(f"{query};{prediction}")
+
+
+def interpret_security(bc, methodid, policy, steps):
+    try:
+        ai = confidentiality.AbstractInterpreter.initial(
+            bc, methodid, policy, security_config()
+        )
+    except (
+        OSError,
+        KeyError,
+        ValueError,
+        NotImplementedError,
+        AssertionError,
+        TypeError,
+    ) as exc:
+        before = jpamb.emit_init({})
+        jpamb.emit_step(before, PC(methodid, 0), "unknown", depth=1)
+        print(f"confidentiality: unsupported: {exc}", file=sys.stderr)
+        return
+    before = jpamb.emit_init(ai.states)
+    while steps > 0 and ai.worklist:
+        if ai.config.max_steps is not None and ai.steps >= ai.config.max_steps:
+            break
+        pc, finals = ai.step()
+        for result in sorted(finals):
+            if steps <= 0:
+                break
+            jpamb.emit_step(before, pc, result, depth=1)
+            steps -= 1
+        if steps > 0:
+            before = jpamb.emit_step(before, pc, ai.states, depth=1)
+            steps -= 1
+    result = ai.result()
+    print(f"confidentiality: {result.status}", file=sys.stderr)
+    for diagnostic in result.diagnostics:
+        print(
+            f"  {diagnostic.offset}: {diagnostic.kind}: {diagnostic.message}",
+            file=sys.stderr,
+        )
+    if ai.worklist and steps > 0:
+        jpamb.emit_step(before, ai.worklist[0], "unknown", depth=1)
+
+
 def interpret():
     """The static analysis"""
     methodid, input, steps = jpamb.getcase(
@@ -181,6 +264,17 @@ def interpret():
     )
     suite, eff = jpamb.setup()
     bc = jpamb.Bytecode(suite, eff, {})
+
+    try:
+        policy = suite.security_policy(methodid.classname, eff=eff)
+    except (OSError, KeyError, ValueError, NotImplementedError) as exc:
+        before = jpamb.emit_init({})
+        jpamb.emit_step(before, PC(methodid, 0), "unknown", depth=1)
+        print(f"confidentiality: unsupported: {exc}", file=sys.stderr)
+        return
+    if policy is not None:
+        interpret_security(bc, methodid, policy, steps)
+        return
 
     ai = AbstractInterpreter.initial(bc, methodid, input)
 
@@ -210,18 +304,32 @@ def analyse():
     suite, eff = jpamb.setup()
     bc = jpamb.Bytecode(suite, eff, {})
 
-    steps = 300
+    try:
+        config = security_config()
+        policy = suite.security_policy(methodid.classname, eff=eff)
+    except (OSError, KeyError, ValueError, NotImplementedError) as exc:
+        report_security(unknown_result(exc))
+        return
+    if policy is not None:
+        report_security(confidentiality.analyze(bc, methodid, policy, config))
+        return
 
-    ai = AbstractInterpreter.initial(bc, methodid, None)
-
-    final = set()
-    while steps > 0 and ai.worklist:
-        _pc, finals = ai.step()
-        final |= finals
-        steps -= 1
+    try:
+        ai = AbstractInterpreter.initial(bc, methodid, None)
+        final = set()
+        steps = 0
+        while ai.worklist and (config.max_steps is None or steps < config.max_steps):
+            _pc, finals = ai.step()
+            final |= finals
+            steps += 1
+    except (OSError, KeyError, ValueError, NotImplementedError, AssertionError) as exc:
+        report_security(unknown_result(exc))
+        return
 
     for f in jpamb.QUERIES:
-        if f not in final:
+        if ai.worklist or "unknown" in final:
+            print(f"{f};unknown")
+        elif f not in final:
             print(f"{f};no")
         else:
             print(f"{f};maybe")

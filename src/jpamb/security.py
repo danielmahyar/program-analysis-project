@@ -215,15 +215,42 @@ class SecurityLattice:
 
     def le(self, a: str, b: str) -> bool:
         """Returns True iff a <= b (information is allowed to flow from a to b)."""
+        self.require(a)
+        self.require(b)
         return (a, b) in self.closure
+
+    def contains(self, label: str) -> bool:
+        return label in self.levels
+
+    def require(self, label: str) -> str:
+        """Validate a level at an API boundary and return its canonical name."""
+        if not self.contains(label):
+            raise ValueError(f"Unknown level {label!r} in lattice {self.dim}")
+        return label
 
     def join(self, a: str, b: str) -> str:
         """Least Upper Bound (⊔)."""
+        self.require(a)
+        self.require(b)
         return self._join_table[(a, b)]
 
     def meet(self, a: str, b: str) -> str:
         """Greatest Lower Bound (⊓)."""
+        self.require(a)
+        self.require(b)
         return self._meet_table[(a, b)]
+
+    def join_all(self, labels: Iterable[str]) -> str:
+        result = self.bot
+        for label in labels:
+            result = self.join(result, label)
+        return result
+
+    def meet_all(self, labels: Iterable[str]) -> str:
+        result = self.top
+        for label in labels:
+            result = self.meet(result, label)
+        return result
 
 
 @dataclass(frozen=True)
@@ -315,6 +342,10 @@ class MethodSecurityPolicy:
     param_slots: tuple[int, ...] = ()
     tags: frozenset[str] = field(default_factory=frozenset)
     cases: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    # Unlike inferred value labels, explicit parameter declarations remain fixed
+    # when a parameter's local slot is assigned again.
+    param_constraints: tuple[SecurityLabel | None, ...] = ()
+    unsupported_features: tuple[str, ...] = ()
 
     @property
     def id(self) -> str:
@@ -325,17 +356,25 @@ class MethodSecurityPolicy:
         return bool(self.cases)
 
     def initial_locals(
-        self, product_lattice: ProductLattice, max_locals: int | None = None
-    ) -> tuple[SecurityLabel, ...]:
+        self,
+        product_lattice: ProductLattice,
+        max_locals: int | None = None,
+        *,
+        uninitialized: bool = False,
+    ) -> tuple[SecurityLabel | None, ...]:
         """Returns initial security labels for local variables at PC=0.
 
         Each parameter's label is placed in the local variable slot the JVM puts
         that parameter in (`long` and `double` take two slots, `this` takes slot
-        0 of an instance method). Every other slot starts at bottom (⊥).
+        0 of an instance method). With ``uninitialized=True`` every other slot
+        is None, distinct from confidentiality bottom. The legacy bottom-filled
+        representation remains the default for existing consumers.
         """
         slots = self.param_slots or tuple(range(len(self.param_labels)))
         needed = max(slots, default=-1) + 1
-        locals_list = [product_lattice.bot] * max(needed, max_locals or 0)
+        locals_list: list[SecurityLabel | None] = [
+            None if uninitialized else product_lattice.bot
+        ] * max(needed, max_locals or 0)
         for slot, label in zip(slots, self.param_labels):
             locals_list[slot] = label
         return tuple(locals_list)
@@ -621,14 +660,27 @@ def _method_policy(
         _label(product, return_sec, where=f"{where} return") if return_sec else None
     )
 
-    labels, slots, has_sec_param = [], [], False
+    labels, slots, constraints, has_sec_param = [], [], [], False
     slot = 0 if is_static else 1
     for i, p in enumerate(params):
         sec = _find(_annotations(p.get("annotations", [])), SEC)
         has_sec_param |= sec is not None
-        labels.append(_label(product, sec, where=f"{where} parameter {i}"))
+        label = _label(product, sec, where=f"{where} parameter {i}")
+        labels.append(label)
+        constraints.append(label if sec is not None else None)
         slots.append(slot)
         slot += 2 if _descriptor(p["type"]) in ("J", "D") else 1
+
+    code = mj.get("code") or {}
+    unsupported = []
+    if code.get("exceptions"):
+        unsupported.append("exception handlers")
+    if "synchronized" in mj.get("access", []):
+        unsupported.append("synchronized method")
+    if any(
+        a.get("annotation", {}).get("type") == SEC for a in code.get("annotations", [])
+    ):
+        unsupported.append("local/type @Sec annotations are not decoded")
 
     return MethodSecurityPolicy(
         name=name,
@@ -640,4 +692,6 @@ def _method_policy(
         param_slots=tuple(slots),
         tags=tags,
         cases=cases,
+        param_constraints=tuple(constraints),
+        unsupported_features=tuple(unsupported),
     )
