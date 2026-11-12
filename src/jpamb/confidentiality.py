@@ -255,10 +255,12 @@ class AbstractInterpreter:
                 for label in initial
             )
         )
+        # Every parameter has a fixed label: its @Sec, or else the class's
+        # input default (Public in every case class). Writes are certified.
+        constraints = declared.param_constraints or (None,) * len(slots)
         clearances = {
-            slot: label["conf"]
-            for slot, label in zip(slots, declared.param_constraints)
-            if label is not None
+            slot: (label if label is not None else initial[slot])["conf"]
+            for slot, label in zip(slots, constraints)
         }
         for slot, clearance in config.local_clearances.items():
             state.check_slot(slot)
@@ -339,14 +341,12 @@ class AbstractInterpreter:
     def assign(self, pc: PC, state: State, slot: int, value: Value) -> State:
         value = value.under(state.pc(self.lattice), self.lattice)
         if slot in self.local_clearances:
-            self.check_flow(
-                pc,
-                value,
-                state.pc(self.lattice),
-                self.local_clearances[slot],
-                f"local {slot}",
-            )
-        # Always keep the actual dependency, including after a failed constraint.
+            # Security certification: L(e) ∪ pc ⊑ L_fixed. A fixed label is
+            # never inferred, so the slot keeps it whether or not the check holds.
+            fixed = self.local_clearances[slot]
+            self.check_flow(pc, value, state.pc(self.lattice), fixed, f"local {slot}")
+            return state.store(slot, Value(fixed, self.lattice.bot))
+        # Unannotated locals infer their label: strong update L(e) ∪ pc.
         return state.store(slot, value)
 
     def transfer(self, pc: PC, state: State) -> tuple[list[tuple[PC, State]], set[str]]:

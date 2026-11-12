@@ -187,6 +187,25 @@ def test_fixed_local_and_parameter_constraints():
     assert result.diagnostics[0].message.startswith("local 0:")
 
 
+def test_unannotated_parameter_is_fixed_public():
+    # void main(int a, @Sec(conf = "Oncology") int b) { a = b; }
+    result = run(
+        [load(1), store(0), {"opr": "return", "type": None}],
+        labels=(None, "Oncology"),
+        returns=False,
+    )
+    assert result.status == "violation"
+    assert result.diagnostics[0].message.startswith("local 0:")
+
+
+def test_parameter_keeps_its_fixed_label_after_a_write():
+    # @Sec(conf = "Public") int main(@Sec(conf = "Oncology") int p) { p = 0; return p; }
+    # Certification of p = 0 passes, but p is never inferred: it stays {Oncology}.
+    result = run([push(), store(0), load(0), RETURN], clearance="Public")
+    assert result.status == "violation"
+    assert result.diagnostics[0].offset == 3
+
+
 def test_configured_input_and_output_defaults():
     assert run([load(0), RETURN], labels=(None,)).safe
     assert (

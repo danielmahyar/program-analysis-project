@@ -95,6 +95,10 @@ To print a policy:
 `uv run python solutions/syntactic/src/security_parser.py jpamb.cases.Hospital`
 (add `--json` for JSON).
 
+For confidentiality as sets of compartments, with the rules for constants,
+operators, assignments, branches and join points, see
+[flow-rules.md](flow-rules.md) (`jpamb.flow_rules`).
+
 ## Where a leak happens (interpreters)
 
 `jpamb interpret` checks that an interpreter reaches every instruction in the
@@ -161,14 +165,15 @@ the legacy bottom-filled default is preserved for existing policy consumers.
 
 Boundary policies are separate from inferred dependencies:
 
-- Unannotated parameters retain the class's configured input default.
-- Explicit `@Sec` parameter declarations also constrain subsequent writes to
-  those parameter slots. A failed assignment is diagnosed and its actual value
-  dependency is retained; the declaration is never raised to accommodate it.
+- Every parameter has a fixed label: its `@Sec`, or else the class's configured
+  input default (Public in every case class). A write to a parameter slot is a
+  security certification, `L(e) ⊔ pc ⊑ L_fixed`: a failed one is diagnosed, and
+  either way the slot keeps its fixed label; it is never inferred
+  ([flow-rules.md](flow-rules.md)).
 - Unannotated local temporaries infer their labels. Callers can supply fixed
   local-slot clearances through `Config.local_clearances`; these apply throughout
-  the method, including reused slots. An additional clearance cannot relax an
-  annotated parameter constraint.
+  the method, including reused slots, and are certified the same way. An
+  additional clearance cannot relax a parameter's fixed label.
 - A return uses its explicit method clearance. Otherwise its configurable
   default is lattice bottom, meaning Public (or Low/Unclassified in lattices
   using different names). Configuring this default never overrides an annotation.

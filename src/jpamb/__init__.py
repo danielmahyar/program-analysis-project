@@ -20,6 +20,7 @@ import runit
 import jvm
 import jvm.state
 import sexpr
+from jpamb import flow_rules as flow_rules
 from jpamb import interpret as interpret
 from jpamb import security as security
 from jpamb.analyse import QUERIES as QUERIES
