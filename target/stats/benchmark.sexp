@@ -143,6 +143,228 @@
     )
     :results ("assertion error")
   )
+  :"jpamb.cases.BasicLeaks.explicitArithmetic!(7)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitArithmetic:(I)V" (coverage
+        :reachable (0 1 2 3)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.explicitConstantSafe!(7)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitConstantSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.explicitCopy!(7)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitCopy:(I)V" (coverage
+        :reachable (0 1 2 3)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.explicitDirect!(7)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitDirect:(I)V" (coverage
+        :reachable (0 1)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.explicitDirectSafe!(7)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitDirectSafe:(I)V" (coverage
+        :reachable (0 1 2)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.explicitMixed!(7, 1)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitMixed:(II)V" (coverage
+        :reachable (0 1 2 3)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.explicitMixedSafe!(7, 1)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitMixedSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.explicitReturn!(7)I" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitReturn:(I)I" (coverage
+        :reachable (0 1)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.explicitReturnSafe!(7)I" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitReturnSafe:(I)I" (coverage
+        :reachable (0 1)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitAfterBranchSafe!(0, 5)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitAfterBranchSafe:(II)V" (coverage
+        :reachable (0 1 2 3 6 7 8)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitAfterBranchSafe!(1, 5)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitAfterBranchSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitIf!(0)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitIf:(I)V" (coverage
+        :reachable (0 1 2 3 6 7 8)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitIf!(1)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitIf:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.implicitIfElse!(0)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitIfElse:(I)V" (coverage
+        :reachable (0 1 5 6 7 8)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.implicitIfElse!(1)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitIfElse:(I)V" (coverage
+        :reachable (0 1 2 3 4 7 8)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.implicitIfSafe!(0)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitIfSafe:(I)V" (coverage
+        :reachable (0 1 2 3 6 7 8)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitIfSafe!(1)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitIfSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitReturn!(0)I" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitReturn:(I)I" (coverage
+        :reachable (0 1 4 5)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.implicitReturn!(1)I" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitReturn:(I)I" (coverage
+        :reachable (0 1 2 3)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.implicitSinkInBranch!(0)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitSinkInBranch:(I)V" (coverage
+        :reachable (0 1 4)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitSinkInBranch!(1)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitSinkInBranch:(I)V" (coverage
+        :reachable (0 1 2 3)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.implicitWhile!(3)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitWhile:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt!(0)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+      :"jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt:(I)V" (coverage
+        :reachable (0 1 2 3 6 7 8 9 10)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt!(1)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+      :"jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10)
+      )
+    )
+    :results (ok)
+  )
   :"jpamb.cases.Calls.allPrimesArePositive!(-1)V" (control
     :coverage (
       :"jpamb.cases.Calls.allPrimesArePositive:(I)V" (coverage
@@ -1592,6 +1814,163 @@
       )
     )
     :results ("assertion error" ok)
+  )
+  :"jpamb.cases.BasicLeaks.explicitArithmetic:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitArithmetic:(I)V" (coverage
+        :reachable (0 1 2 3)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.explicitConstantSafe:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitConstantSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.explicitCopy:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitCopy:(I)V" (coverage
+        :reachable (0 1 2 3)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.explicitDirect:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitDirect:(I)V" (coverage
+        :reachable (0 1)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.explicitDirectSafe:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitDirectSafe:(I)V" (coverage
+        :reachable (0 1 2)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.explicitMixed:(II)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitMixed:(II)V" (coverage
+        :reachable (0 1 2 3)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.explicitMixedSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitMixedSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.explicitReturn:(I)I" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitReturn:(I)I" (coverage
+        :reachable (0 1)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.explicitReturnSafe:(I)I" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.explicitReturnSafe:(I)I" (coverage
+        :reachable (0 1)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitAfterBranchSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitAfterBranchSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitIf:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitIf:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitIfElse:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitIfElse:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.implicitIfSafe:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitIfSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitReturn:(I)I" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitReturn:(I)I" (coverage
+        :reachable (0 1 2 3 4 5)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.implicitSinkInBranch:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitSinkInBranch:(I)V" (coverage
+        :reachable (0 1 2 3 4)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.BasicLeaks.implicitWhile:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitWhile:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+      :"jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10)
+      )
+    )
+    :results (ok)
   )
   :"jpamb.cases.Calls.allPrimesArePositive:(I)V" (control
     :coverage (

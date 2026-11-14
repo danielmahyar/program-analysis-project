@@ -43,7 +43,8 @@ public class Runtime {
           InfoFlow.class,
           Hospital.class,
           Clearance.class,
-          Compartments.class);
+          Compartments.class,
+          BasicLeaks.class);
 
   /** Loads the classes in {@code jpamb.cases} through {@link BytecodeInstrumenter#transform}. */
   static final class CaseLoader extends ClassLoader {

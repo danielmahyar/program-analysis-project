@@ -1,7 +1,7 @@
 # Security Cases
 
-Four case classes describe information-flow policies with annotations:
-`Clearance`, `Compartments`, `Hospital` and `InfoFlow` in
+Five case classes describe information-flow policies with annotations:
+`BasicLeaks`, `Clearance`, `Compartments`, `Hospital` and `InfoFlow` in
 [cases/jpamb/cases](../cases/jpamb/cases). JPAMB serves their `@Case`s like any
 other case, and every analysis (syntactic, dynamic, abstract) reads their
 annotations through the `jpamb` Python package. No other tools are involved.

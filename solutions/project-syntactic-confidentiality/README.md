@@ -30,7 +30,7 @@ uv run --project solutions/project-syntactic-confidentiality project-syntactic-c
     "jpamb.cases.Clearance.flowDownOneLevel:(I)V"
 
 # Score it on the security cases (InformationFlow has no lattice and is not matched)
-uv run jpamb analyse -f "Clearance|Compartments|Hospital|InfoFlow" -- \
+uv run jpamb analyse -f "Clearance|Compartments|Hospital|InfoFlow|BasicLeaks" -- \
     uv run --project solutions/project-syntactic-confidentiality project-syntactic-confidentiality
 
 # Quicker: one iteration, one class
