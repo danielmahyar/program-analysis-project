@@ -451,7 +451,7 @@ def test_secret_loop_converges_and_keeps_zero_iteration_state():
 
 def test_loop_condition_is_reevaluated_after_backedge():
     ops = [
-        push(),
+        push(1),
         store(2),
         push(),
         store(3),
@@ -637,3 +637,19 @@ def test_extended_opcodes_roundtrip_and_have_jvm_names(instruction):
     op = jvm.Opcode.from_json(dict(instruction, offset=0))
     assert op.real()
     assert jvm.Opcode.from_sexpr(sexpr.sexpr(op)) == op
+
+
+@pytest.mark.parametrize("mode, expected_status", [(0, "safe"), (1, "violation")])
+def test_known_branch_condition(mode, expected_status):
+    ops = [
+        push(mode),
+        store(1),
+        load(1),
+        push(1),
+        branch(7, condition="ne", opr="if"),  # Skip publish if mode != 1
+        load(0),
+        invoke(),
+        VOID,
+    ]
+    result = run(ops, returns=False, extra_methods=[sink()])
+    assert result.status == expected_status

@@ -7,6 +7,7 @@ has returned normally. See docs/security.md for the boundary and threat model.
 
 from __future__ import annotations
 
+import operator
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
@@ -19,6 +20,16 @@ from jvm.state import PC
 
 if TYPE_CHECKING:
     from jpamb import Bytecode
+
+
+_INTEGER_COMPARISONS = {
+    jvm.CmpOpr.Eq: operator.eq,
+    jvm.CmpOpr.Ne: operator.ne,
+    jvm.CmpOpr.Lt: operator.lt,
+    jvm.CmpOpr.Le: operator.le,
+    jvm.CmpOpr.Gt: operator.gt,
+    jvm.CmpOpr.Ge: operator.ge,
+}
 
 
 class UnsupportedInstruction(ValueError):
@@ -42,6 +53,7 @@ class Config:
 class Value(sexpr.AsSExpr):
     data: str
     control: str
+    constant: int | None = None  # None means the integer value is unknown.
 
     def label(self, lattice: SecurityLattice) -> str:
         return lattice.join(self.data, self.control)
@@ -50,10 +62,11 @@ class Value(sexpr.AsSExpr):
         return Value(
             lattice.join(self.data, other.data),
             lattice.join(self.control, other.control),
+            constant=self.constant if self.constant == other.constant else None,
         )
 
     def under(self, pc: str, lattice: SecurityLattice) -> Value:
-        return Value(self.data, lattice.join(self.control, pc))
+        return replace(self, control=lattice.join(self.control, pc))
 
 
 @dataclass(frozen=True)
@@ -345,7 +358,9 @@ class AbstractInterpreter:
             # never inferred, so the slot keeps it whether or not the check holds.
             fixed = self.local_clearances[slot]
             self.check_flow(pc, value, state.pc(self.lattice), fixed, f"local {slot}")
-            return state.store(slot, Value(fixed, self.lattice.bot))
+            return state.store(
+                slot, Value(fixed, self.lattice.bot, constant=value.constant)
+            )
         # Unannotated locals infer their label: strong update L(e) ∪ pc.
         return state.store(slot, value)
 
@@ -353,13 +368,14 @@ class AbstractInterpreter:
         lattice = self.lattice
         context = state.pc(lattice)
         op = self.method.opcodes[pc.offset]
+        successors = self.successors[pc.offset]
         finals = set()
         match op:
             case jvm.Push(type=type_, value=value):
                 require_int(type_)
                 if not isinstance(value, int):
                     raise UnsupportedInstruction("non-integer constant")
-                after = state.push(Value(lattice.bot, context))
+                after = state.push(Value(lattice.bot, context, constant=value))
             case jvm.Load(type=type_, index=slot):
                 require_int(type_)
                 after = state.push(state.load(slot).under(context, lattice))
@@ -368,26 +384,35 @@ class AbstractInterpreter:
                 (value,), after = state.pop()
                 after = self.assign(pc, after, slot, value)
             case jvm.Incr(index=slot):
-                after = self.assign(pc, state, slot, state.load(slot))
+                value = replace(state.load(slot), constant=None)
+                after = self.assign(pc, state, slot, value)
             case jvm.Binary(type=type_):
                 require_int(type_)
                 (left, right), after = state.pop(2)
-                after = after.push(left.join(right, lattice).under(context, lattice))
+                combined = left.join(right, lattice).under(context, lattice)
+                after = after.push(replace(combined, constant=None))
             case jvm.Negate(type=type_):
                 require_int(type_)
                 (value,), after = state.pop()
-                after = after.push(value.under(context, lattice))
+                after = after.push(replace(value.under(context, lattice), constant=None))
             case jvm.Cast(from_=source, to_=target):
                 require_int(source)
                 require_int(target)
                 (value,), after = state.pop()
-                after = after.push(value.under(context, lattice))
+                after = after.push(replace(value.under(context, lattice), constant=None))
             case jvm.If() | jvm.Ifz():
-                operands, after = state.pop(2 if isinstance(op, jvm.If) else 1)
+                two_operands = isinstance(op, jvm.If)
+                operands, after = state.pop(2 if two_operands else 1)
                 condition = lattice.join_all(v.label(lattice) for v in operands)
                 controls = dict(after.context)
                 controls[pc.offset] = lattice.join(context, condition)
                 after = replace(after, context=tuple(sorted(controls.items())))
+                left = operands[0].constant
+                right = operands[1].constant if two_operands else 0
+                if left is not None and right is not None:
+                    target, fallthrough = successors
+                    taken = _INTEGER_COMPARISONS[op.condition](left, right)
+                    successors = (target if taken else fallthrough,)
             case jvm.Goto():
                 after = state
             case jvm.Dup(words=words):
@@ -469,7 +494,7 @@ class AbstractInterpreter:
                 return [], finals
             case _:
                 raise UnsupportedInstruction(f"unsupported instruction: {op!r}")
-        return [(PC(pc.method, i), after) for i in self.successors[pc.offset]], finals
+        return [(PC(pc.method, i), after) for i in successors], finals
 
     def step(self) -> tuple[PC, set[str]]:
         pc = self.worklist.popleft()
