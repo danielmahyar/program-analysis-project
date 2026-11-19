@@ -26,13 +26,10 @@ import java.lang.annotation.*;
  * <p>Reaching a sink with a value {@code v} where {@code full(v) ⊔ pc ⋢ clearance} throws an {@link
  * AssertionError}; this is the outcome {@code "assertion error"} in a {@link Case}. A method is
  * tagged {@code EXPLICIT_FLOW} if its leak already shows in {@code explicit(v) ⋢ clearance}, and
- * {@code IMPLICIT_FLOW} if it only shows once pc is included. Integrity violations are tagged the
- * same way.
+ * {@code IMPLICIT_FLOW} if it only shows once pc is included.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.PARAMETER, ElementType.METHOD})
 public @interface Sec {
   String conf() default "";
-
-  String integ() default "";
 }

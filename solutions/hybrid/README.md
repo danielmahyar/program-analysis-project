@@ -5,7 +5,7 @@ A hybrid confidentiality analyzer for the JPAMB security benchmark (`@Lattice` a
    - **AST Constant Extraction:** pulls integer thresholds from AST expressions to seed the dynamic fuzzer.
    - **Early-Return Postdominator Propagation:** retains elevated `pc` labels after `if (secret) return ...;` statements so sequential returns are certified under the secret context.
 2. **Dynamic Concrete Interpreter & Shadow Label Monitor** (`solutions/dynamic`), enhanced with:
-   - **Confidentiality-Focused Monitor (`conf` dimension):** isolates confidentiality violations from integrity checks.
+   - **Confidentiality Monitor (`conf` dimension):** tracks explicit and implicit confidentiality violations across the lattice.
    - **Suspicion-Guided Fuzzing Budget:** scales the coverage-guided fuzzing campaign (`coverage_fuzz`) based on whether the syntactic pass detected a potential leak.
    - **Hybrid Untaken-Branch Pre-Tainting:** when a syntactic leak is not witnessed dynamically under partial coverage, probes whether an untaken branch condition was confidential and taints variables modified inside the untaken branch at its immediate postdominator (`ipdom`).
 3. **Confidence-Calibrated Decision Matrix:** fuses static leak warnings, concrete runtime violation witnesses, and instruction coverage into calibrated JPAMB predictions.

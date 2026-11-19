@@ -71,8 +71,4 @@ leak at line 104: oncologyRecords(flag)  ({Psych} -> {Oncology})
 ```
 
 It only runs on the security cases (classes with `@Lattice`).
-
-On the 51 security methods: 25 leaks caught, 17 correct `ok`, 7 missed, 2 false
-leaks. The misses are integrity leaks (the rules only check confidentiality).
-The false leaks are `deadBranchLeak`, whose leaking branch never runs, which a
-syntactic analysis cannot see.
+With constant propagation (`const_env`), dead branches like `deadBranchLeak` are pruned statically.

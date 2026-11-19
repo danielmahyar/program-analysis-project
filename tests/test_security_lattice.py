@@ -103,23 +103,6 @@ def test_lattice_algebraic_laws():
                 assert lat.join(x, y) != y or x == y
 
 
-def test_integrity_lattice():
-    # Integrity: Trusted <= Untrusted (Trusted flows to Untrusted, untrusted cannot flow to trusted)
-    integ = SecurityLattice(
-        dim="integ",
-        levels=("Trusted", "Untrusted"),
-        order_edges=(("Trusted", "Untrusted"),),
-        default_level="Untrusted",
-    )
-
-    assert integ.bot == "Trusted"
-    assert integ.top == "Untrusted"
-    assert integ.le("Trusted", "Untrusted")
-    assert not integ.le("Untrusted", "Trusted")
-    assert integ.join("Trusted", "Untrusted") == "Untrusted"
-    assert integ.meet("Trusted", "Untrusted") == "Trusted"
-
-
 def test_product_lattice():
     conf = SecurityLattice(
         dim="conf",
@@ -132,40 +115,27 @@ def test_product_lattice():
         ),
         default_level="Public",
     )
-    integ = SecurityLattice(
-        dim="integ",
-        levels=("Trusted", "Untrusted"),
-        order_edges=(("Trusted", "Untrusted"),),
-        default_level="Untrusted",
-    )
 
-    prod = ProductLattice({"conf": conf, "integ": integ})
+    prod = ProductLattice({"conf": conf})
 
-    l_onco_trusted = prod.make_label(conf="Oncology", integ="Trusted")
-    l_psych_untrusted = prod.make_label(conf="Psych", integ="Untrusted")
-    l_pub_trusted = prod.make_label(conf="Public", integ="Trusted")
-    l_pub_untrusted = prod.make_label(conf="Public", integ="Untrusted")
+    l_onco = prod.make_label(conf="Oncology")
+    l_psych = prod.make_label(conf="Psych")
+    l_pub = prod.make_label(conf="Public")
+    l_admin = prod.make_label(conf="HospitalAdmin")
 
-    # (Public, Trusted) <= (Public, Untrusted)
-    assert prod.le(l_pub_trusted, l_pub_untrusted)
+    assert prod.le(l_pub, l_onco)
+    assert not prod.le(l_onco, l_pub)
+    assert not prod.le(l_psych, l_onco)
 
-    # (Oncology, Trusted) ⋢ (Public, Untrusted) because Oncology ⋢ Public
-    assert not prod.le(l_onco_trusted, l_pub_untrusted)
-
-    # (Psych, Untrusted) ⋢ (Oncology, Untrusted) because Psych ⋢ Oncology
-    assert not prod.le(l_psych_untrusted, l_onco_trusted)
-
-    # Join of Oncology and Psych becomes HospitalAdmin; Trusted and Untrusted becomes Untrusted
-    j = prod.join(l_onco_trusted, l_psych_untrusted)
+    j = prod.join(l_onco, l_psych)
+    assert j == l_admin
     assert j["conf"] == "HospitalAdmin"
-    assert j["integ"] == "Untrusted"
 
 
 def test_parse_hospital():
     policy = policy_of("Hospital")
 
-    assert "conf" in policy.product_lattice.lattices
-    assert "integ" in policy.product_lattice.lattices
+    assert list(policy.product_lattice.lattices) == ["conf"]
 
     conf_lat = policy.product_lattice.lattices["conf"]
     assert set(conf_lat.levels) == {"Public", "Oncology", "Psych", "HospitalAdmin"}
@@ -173,8 +143,8 @@ def test_parse_hospital():
     assert conf_lat.top == "HospitalAdmin"
 
     # Verify process method parameters from Listing 1
-    # public static void process(@Sec(conf = "Oncology", integ = "Trusted") int onco,
-    #                            @Sec(conf = "Psych", integ = "Untrusted") int psych)
+    # public static void process(@Sec(conf = "Oncology") int onco,
+    #                            @Sec(conf = "Psych") int psych)
     process_m = policy.get_method("process")
     assert process_m is not None
     assert len(process_m.param_labels) == 2
@@ -183,10 +153,7 @@ def test_parse_hospital():
     psych_lbl = process_m.param_labels[1]
 
     assert onco_lbl["conf"] == "Oncology"
-    assert onco_lbl["integ"] == "Trusted"
-
     assert psych_lbl["conf"] == "Psych"
-    assert psych_lbl["integ"] == "Untrusted"
 
     # Verify tags
     assert "EXPLICIT_FLOW" in process_m.tags
@@ -197,8 +164,6 @@ def test_parse_hospital():
     assert pub_dash is not None
     assert len(pub_dash.param_labels) == 1
     assert pub_dash.param_labels[0]["conf"] == "Public"
-    # missing integ dimension automatically gets defaultLevel "Untrusted"
-    assert pub_dash.param_labels[0]["integ"] == "Untrusted"
 
     # Verify return clearance on publicRiskScore
     prs = policy.get_method("publicRiskScore")
@@ -237,8 +202,6 @@ def test_lookup_by_jpamb_method_ids():
         "publicDashboard:(I)V",
         "oncologyRecords:(I)V",
         "adminReport:(I)V",
-        "auditLog:(I)V",
-        "billing:(Z)V",
     }
 
     with pytest.raises(KeyError):
@@ -247,43 +210,33 @@ def test_lookup_by_jpamb_method_ids():
 
 def test_parse_infoflow():
     policy = policy_of("InfoFlow")
-    assert "conf" in policy.product_lattice.lattices
-    assert "integ" in policy.product_lattice.lattices
+    assert list(policy.product_lattice.lattices) == ["conf"]
 
     conf_lat = policy.product_lattice.lattices["conf"]
     assert conf_lat.bot == "Low"
     assert conf_lat.top == "High"
 
-    integ_lat = policy.product_lattice.lattices["integ"]
-    assert integ_lat.bot == "Trusted"
-    assert integ_lat.top == "Untrusted"
-
     # explicitLeak(@Sec(conf = "High") int secret)
     leak_m = policy.get_method("explicitLeak")
     assert leak_m is not None
     assert leak_m.param_labels[0]["conf"] == "High"
-    assert leak_m.param_labels[0]["integ"] == "Untrusted"
 
-    # unannotatedInput(int input) gets default level in every dimension: (Low, Untrusted)
-    unann = policy.get_method("unannotatedInput")
-    assert unann is not None
-    assert unann.param_labels[0]["conf"] == "Low"
-    assert unann.param_labels[0]["integ"] == "Untrusted"
+    # explicitSafe(@Sec(conf = "Low") int open)
+    safe_m = policy.get_method("explicitSafe")
+    assert safe_m is not None
+    assert safe_m.param_labels[0]["conf"] == "Low"
 
 
 def test_parse_clearance_and_compartments():
     policy = policy_of("Clearance")
+    assert list(policy.product_lattice.lattices) == ["conf"]
     conf_lat = policy.product_lattice.lattices["conf"]
     assert conf_lat.bot == "Unclassified"
     assert conf_lat.top == "TopSecret"
     assert conf_lat.le("Restricted", "Secret")  # Transitive closure
-    assert policy.product_lattice.lattices["integ"].levels == (
-        "Trusted",
-        "Partner",
-        "Untrusted",
-    )
 
     policy = policy_of("Compartments")
+    assert list(policy.product_lattice.lattices) == ["conf"]
     conf_lat = policy.product_lattice.lattices["conf"]
     assert len(conf_lat.levels) == 8
     assert conf_lat.join("Alpha", "Bravo") == "AlphaBravo"
@@ -413,9 +366,9 @@ def test_parameter_slots_of_instance_method_with_long():
         (
             _class(
                 [LOW_HIGH],
-                [_method("m", [_param("int", _ann("Sec", integ=_str("Trusted")))])],
+                [_method("m", [_param("int", _ann("Sec", extra=_str("Foo")))])],
             ),
-            "Unknown dimension 'integ'",
+            "Unknown dimension 'extra'",
         ),
         (
             _class([], [_method("m", [_param("int", _ann("Sec", conf=_str("Low")))])]),

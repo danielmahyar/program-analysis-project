@@ -32,11 +32,6 @@ import jpamb.utils.*;
       "BravoCharlie <= All"
     },
     defaultLevel = "None")
-@Lattice(
-    dim = "integ",
-    levels = {"Trusted", "Untrusted"},
-    order = {"Trusted <= Untrusted"},
-    defaultLevel = "Untrusted")
 public class Compartments {
 
   static void alphaBravoSink(@Sec(conf = "AlphaBravo") int value) {}

@@ -11,7 +11,7 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface Lattice {
-  /** Name of the dimension; must match an element of {@link Sec} ({@code conf} or {@code integ}). */
+  /** Name of the dimension; must match an element of {@link Sec} ({@code conf}). */
   String dim();
 
   String[] levels();

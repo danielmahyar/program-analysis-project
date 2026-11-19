@@ -14,9 +14,9 @@ budgets. Coverage guides exploration; the dynamic interpreter checks security.
 
 The first version supports static, intraprocedural methods with `int` and
 `boolean` inputs, inferred locals, structured branches/loops, and the annotated
-empty sink methods already supported by the static analysis. It checks only
+empty sink methods already supported by the static analysis. It checks
 the `conf` dimension. Heap effects, arrays, strings, general calls, timing,
-termination channels, relational non-interference checking, and integrity are
+termination channels, and relational non-interference checking are
 outside this first version.
 
 Use existing policy extraction and the confidentiality lattice's `join` and `le`
@@ -181,8 +181,7 @@ must not produce a claim that `*` was observed.
 When comparing against the static analysis, report warnings as dynamically
 confirmed or not reproduced within budget. Do not turn an unconfirmed static
 warning into a safe result. Compare only methods and policy settings shared by
-both analyses. Existing integrity-based `@Case` outcomes are not ground truth
-for a confidentiality-only evaluation.
+both analyses.
 
 ## Examples and acceptance criteria
 

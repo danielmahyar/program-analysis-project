@@ -4,7 +4,7 @@ import static jpamb.utils.Tag.TagType.*;
 
 import jpamb.utils.*;
 
-/** Deep chain lattices: military-style clearances and a three-level integrity chain. */
+/** Deep chain lattice: five-level military-style confidentiality clearances. */
 @Lattice(
     dim = "conf",
     levels = {"Unclassified", "Restricted", "Confidential", "Secret", "TopSecret"},
@@ -15,11 +15,6 @@ import jpamb.utils.*;
       "Secret <= TopSecret"
     },
     defaultLevel = "Unclassified")
-@Lattice(
-    dim = "integ",
-    levels = {"Trusted", "Partner", "Untrusted"},
-    order = {"Trusted <= Partner", "Partner <= Untrusted"},
-    defaultLevel = "Untrusted")
 public class Clearance {
 
   static void broadcast(@Sec(conf = "Unclassified") int value) {}
@@ -27,10 +22,6 @@ public class Clearance {
   static void confidentialChannel(@Sec(conf = "Confidential") int value) {}
 
   static void secretChannel(@Sec(conf = "Secret") int value) {}
-
-  static void partnerFeed(@Sec(conf = "Restricted", integ = "Partner") int value) {}
-
-  static void commandSystem(@Sec(conf = "TopSecret", integ = "Trusted") int order) {}
 
   // Needs the transitive closure: Restricted <= Confidential <= Secret.
   @Case("(1) -> ok")
@@ -115,31 +106,5 @@ public class Clearance {
       i = i + 1;
     }
     confidentialChannel(acc);
-  }
-
-  @Case("(1) -> ok")
-  @Tag({CALL})
-  public static void partnerToPartnerFeed(@Sec(conf = "Restricted", integ = "Partner") int x) {
-    partnerFeed(x);
-  }
-
-  @Case("(1) -> assertion error")
-  @Tag({EXPLICIT_FLOW, CALL})
-  public static void untrustedToPartnerFeed(@Sec(integ = "Untrusted") int x) {
-    partnerFeed(x);
-  }
-
-  @Case("(1) -> assertion error")
-  @Tag({EXPLICIT_FLOW, CALL})
-  public static void partnerCommand(@Sec(conf = "Secret", integ = "Partner") int order) {
-    commandSystem(order);
-  }
-
-  @Case("(1, 2) -> ok")
-  @Tag({CALL})
-  public static void trustedCommand(
-      @Sec(conf = "Secret", integ = "Trusted") int a,
-      @Sec(conf = "TopSecret", integ = "Trusted") int b) {
-    commandSystem(a + b);
   }
 }

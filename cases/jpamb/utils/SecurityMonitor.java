@@ -90,16 +90,14 @@ public class SecurityMonitor {
 
   public static class Label {
     public final String conf;
-    public final String integ;
 
-    public Label(String conf, String integ) {
+    public Label(String conf) {
       this.conf = conf;
-      this.integ = integ;
     }
 
     @Override
     public String toString() {
-      return "(" + conf + ", " + integ + ")";
+      return conf;
     }
   }
 
@@ -142,18 +140,14 @@ public class SecurityMonitor {
 
   private static Label botLabel() {
     DimensionLattice confLat = activeLattices.get("conf");
-    DimensionLattice integLat = activeLattices.get("integ");
     String botConf = confLat != null ? confLat.bot : "Public";
-    String botInteg = integLat != null ? integLat.bot : "Trusted";
-    return new Label(botConf, botInteg);
+    return new Label(botConf);
   }
 
   private static Label defaultLabel() {
     DimensionLattice confLat = activeLattices.get("conf");
-    DimensionLattice integLat = activeLattices.get("integ");
     String defConf = confLat != null ? confLat.defaultLevel : "Public";
-    String defInteg = integLat != null ? integLat.defaultLevel : "Untrusted";
-    return new Label(defConf, defInteg);
+    return new Label(defConf);
   }
 
   private static Label currentPc() {
@@ -168,16 +162,12 @@ public class SecurityMonitor {
     Arrays.fill(shadowLocals, null);
   }
 
-  public static synchronized void initLocal(int index, String conf, String integ) {
+  public static synchronized void initLocal(int index, String conf) {
     DimensionLattice confLat = activeLattices.get("conf");
-    DimensionLattice integLat = activeLattices.get("integ");
     String c = (conf == null || conf.isEmpty())
         ? (confLat != null ? confLat.defaultLevel : "Public")
         : conf;
-    String in = (integ == null || integ.isEmpty())
-        ? (integLat != null ? integLat.defaultLevel : "Untrusted")
-        : integ;
-    shadowLocals[index] = new Label(c, in);
+    shadowLocals[index] = new Label(c);
   }
 
   public static synchronized void atInsn(int insnIndex) {
@@ -235,27 +225,22 @@ public class SecurityMonitor {
     pcStack.push(new PcEntry(ipdom, join(currentPc(), cond)));
   }
 
-  public static synchronized void checkSink(String sinkName, String requiredConf, String requiredInteg) {
+  public static synchronized void checkSink(String sinkName, String requiredConf) {
     Label val = shadowStack.isEmpty() ? currentPc() : shadowStack.pop();
     Label effective = join(val, currentPc());
 
     DimensionLattice confLat = activeLattices.get("conf");
-    DimensionLattice integLat = activeLattices.get("integ");
 
     String reqConf = (requiredConf == null || requiredConf.isEmpty())
         ? (confLat != null ? confLat.defaultLevel : "Public")
         : requiredConf;
-    String reqInteg = (requiredInteg == null || requiredInteg.isEmpty())
-        ? (integLat != null ? integLat.defaultLevel : "Untrusted")
-        : requiredInteg;
 
     boolean confOk = (confLat == null) || confLat.canFlow(effective.conf, reqConf);
-    boolean integOk = (integLat == null) || integLat.canFlow(effective.integ, reqInteg);
 
-    if (!confOk || !integOk) {
+    if (!confOk) {
       throw new AssertionError(
           "SECURITY VIOLATION at sink " + sinkName + ": effective " + effective
-          + " cannot flow to required clearance (" + reqConf + ", " + reqInteg + ")");
+          + " cannot flow to required clearance " + reqConf);
     }
   }
 
@@ -263,10 +248,8 @@ public class SecurityMonitor {
     if (a == null) return b;
     if (b == null) return a;
     DimensionLattice confLat = activeLattices.get("conf");
-    DimensionLattice integLat = activeLattices.get("integ");
 
     String conf = (confLat != null) ? confLat.join(a.conf, b.conf) : a.conf;
-    String integ = (integLat != null) ? integLat.join(a.integ, b.integ) : a.integ;
-    return new Label(conf, integ);
+    return new Label(conf);
   }
 }

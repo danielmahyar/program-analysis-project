@@ -2,8 +2,7 @@
 
 The rules the analyses use to compute confidentiality labels. They are
 implemented in [`jpamb.flow_rules`](../src/jpamb/flow_rules.py), so every
-analysis (syntactic, abstract, dynamic) computes labels the same way. The
-integrity lattice is ignored completely.
+analysis (syntactic, abstract, dynamic) computes labels the same way.
 
 ## The powerset compartment lattice
 

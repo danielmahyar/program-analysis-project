@@ -6,11 +6,9 @@ Five case classes describe information-flow policies with annotations:
 other case, and every analysis (syntactic, dynamic, abstract) reads their
 annotations through the `jpamb` Python package. No other tools are involved.
 
-- `@Lattice` (on the class) declares one dimension of the lattice: `conf`
-  (confidentiality) or `integ` (integrity), its levels, its order and the
-  default level. See [Lattice.java](../cases/jpamb/utils/Lattice.java).
-- `@Sec` gives a label, one level per dimension (a missing dimension gets its
-  default). On a parameter of a `@Case` method it is the label of that input
+- `@Lattice` (on the class) declares the confidentiality lattice (`conf`),
+  its levels, its order and the default level. See [Lattice.java](../cases/jpamb/utils/Lattice.java).
+- `@Sec` gives a confidentiality label (if omitted, the default level is used). On a parameter of a `@Case` method it is the label of that input
   (a source); on a parameter of any other method it is the clearance of that
   argument (a sink); on a method it is the clearance of its return value. See
   [Sec.java](../cases/jpamb/utils/Sec.java).
@@ -68,7 +66,7 @@ if policy is not None:
     method = policy.method(methodid)
 
     # Labels of the inputs; param_slots says which local variable holds each one
-    method.param_labels  # e.g. ((Oncology, Trusted), (Psych, Untrusted))
+    method.param_labels  # e.g. (Oncology, Psych)
     method.initial_locals(
         lattice, max_locals=suite.method_max_locals(methodid, eff=eff)
     )
@@ -82,7 +80,7 @@ if policy is not None:
 
 | Python | Meaning |
 | --- | --- |
-| `policy.product_lattice` | `le`, `join`, `meet`, `bot`, `top`, `default_label`, `make_label(conf=..., integ=...)` |
+| `policy.product_lattice` | `le`, `join`, `meet`, `bot`, `top`, `default_label`, `make_label(conf=...)` |
 | `policy.product_lattice.lattices[dim]` | one dimension: `levels`, `order_edges`, `le`, `join`, `meet`, `bot`, `top` |
 | `policy.method(methodid)` | a `MethodSecurityPolicy`; takes the `AbsMethodID` JPAMB passes, a `MethodID`, or `"name:(II)V"` |
 | `policy.sink(methodid)` | the sink's `MethodSecurityPolicy`, or `None` if the method is not a sink |
@@ -133,10 +131,7 @@ recorded before by the reference interpreter.
 
 `static-analysis` in `solutions/static` now uses `jpamb.confidentiality` for
 classes declaring security lattices. Classes without a security policy keep the
-existing numeric analysis. The new analysis uses only the `conf` dimension;
-existing integrity and product-lattice policies can still be parsed, but their
-integrity classifications are not checked by this analysis. The Java monitor is
-unchanged and may therefore report different outcomes.
+existing numeric analysis. The analysis uses the `conf` dimension.
 
 The supported model is intraprocedural, termination-insensitive value-flow
 confidentiality over JVM `int`/`boolean` values. Integer arithmetic, comparisons,

@@ -32,13 +32,13 @@ CASE = "jpamb/utils/Case"
 CASES = "jpamb/utils/Cases"
 TAG = "jpamb/utils/Tag"
 
-SEC_DIMENSIONS = ("conf", "integ")
+SEC_DIMENSIONS = ("conf",)
 """The dimensions a lattice can describe: the elements of `@Sec`."""
 
 
 @dataclass(frozen=True)
 class SecurityLabel:
-    """A multi-dimensional security label, e.g. (conf='Oncology', integ='Trusted')."""
+    """A security label, e.g. (conf='Oncology')."""
 
     levels: tuple[tuple[str, str], ...]
 
@@ -93,7 +93,7 @@ class SecurityLabel:
 
 @dataclass(frozen=True)
 class SecurityLattice:
-    """A single security lattice dimension (e.g. confidentiality or integrity).
+    """A single security lattice dimension (e.g. confidentiality).
 
     Validates that the reflexive-transitive closure of given edges forms
     a valid partial order (poset) and a finite lattice where unique join

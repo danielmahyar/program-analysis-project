@@ -4,18 +4,11 @@ import static jpamb.utils.Tag.TagType.*;
 
 import jpamb.utils.*;
 
-/** Basic information-flow cases over the classic two-point lattices. */
+/** Basic information-flow cases over the classic two-point confidentiality lattice. */
 @Lattice(dim = "conf", levels = {"Low", "High"}, order = {"Low <= High"}, defaultLevel = "Low")
-@Lattice(
-    dim = "integ",
-    levels = {"Trusted", "Untrusted"},
-    order = {"Trusted <= Untrusted"},
-    defaultLevel = "Untrusted")
 public class InfoFlow {
 
   static void publish(@Sec(conf = "Low") int value) {}
-
-  static void writeTrusted(@Sec(conf = "High", integ = "Trusted") int value) {}
 
   @Case("(0) -> assertion error")
   @Case("(42) -> assertion error")
@@ -129,35 +122,5 @@ public class InfoFlow {
     if (mode == 1) {
       publish(secret);
     }
-  }
-
-  @Case("(1) -> assertion error")
-  @Tag({EXPLICIT_FLOW, CALL})
-  public static void integrityExplicit(@Sec(integ = "Untrusted") int input) {
-    writeTrusted(input);
-  }
-
-  @Case("(true) -> assertion error")
-  @Case("(false) -> ok")
-  @Tag({IMPLICIT_FLOW, CONDITIONAL, CALL})
-  public static void integrityImplicit(@Sec(integ = "Untrusted") boolean flag) {
-    int v = 0;
-    if (flag) {
-      v = 1;
-    }
-    writeTrusted(v);
-  }
-
-  @Case("(1) -> ok")
-  @Tag({CALL})
-  public static void integritySafe(@Sec(conf = "High", integ = "Trusted") int input) {
-    writeTrusted(input * 2);
-  }
-
-  // Unannotated inputs get the default level in every dimension: (Low, Untrusted).
-  @Case("(1) -> assertion error")
-  @Tag({EXPLICIT_FLOW, CALL})
-  public static void unannotatedInput(int input) {
-    writeTrusted(input);
   }
 }

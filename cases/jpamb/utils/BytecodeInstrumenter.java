@@ -8,7 +8,7 @@ import java.nio.file.*;
 import java.util.*;
 
 /**
- * ASM-based Bytecode Instrumenter for Information Flow & Integrity Runtime Monitoring (NIN).
+ * ASM-based Bytecode Instrumenter for Confidentiality Information Flow Runtime Monitoring (NIN).
  * Instruments compiled Java classes to inject shadow tracking, immediate post-dominator
  * pc-context tracking, and sink clearance assertions.
  */
@@ -136,7 +136,6 @@ public class BytecodeInstrumenter {
     }
 
     String defaultConf = latticeDefaults.getOrDefault("conf", "Public");
-    String defaultInteg = latticeDefaults.getOrDefault("integ", "Untrusted");
 
     // 2. Discover sink methods (non-@Case methods with @Sec parameters) and their clearances
     Map<String, Map<Integer, SecurityMonitor.Label>> sinkClearances = new HashMap<>();
@@ -153,10 +152,8 @@ public class BytecodeInstrumenter {
             for (AnnotationNode an : pAnns) {
               if (an.desc.contains("Sec")) {
                 String conf = (String) getAnnotationValue(an, "conf");
-                String integ = (String) getAnnotationValue(an, "integ");
                 paramMap.put(p, new SecurityMonitor.Label(
-                    (conf != null && !conf.isEmpty()) ? conf : defaultConf,
-                    (integ != null && !integ.isEmpty()) ? integ : defaultInteg));
+                    (conf != null && !conf.isEmpty()) ? conf : defaultConf));
               }
             }
           }
@@ -175,7 +172,7 @@ public class BytecodeInstrumenter {
       }
       String probeKey = coverage ? coverageKey(cn, mn) : null;
       if (hasCaseAnnotation(mn)) {
-        instrumentMethod(cn, mn, sinkClearances, defaultConf, defaultInteg, probeKey);
+        instrumentMethod(cn, mn, sinkClearances, defaultConf, probeKey);
       } else if (coverage) {
         addCoverageProbes(cn, mn);
       }
@@ -317,7 +314,6 @@ public class BytecodeInstrumenter {
       MethodNode mn,
       Map<String, Map<Integer, SecurityMonitor.Label>> sinkClearances,
       String defaultConf,
-      String defaultInteg,
       String probeKey) {
 
     AbstractInsnNode[] origInsns = mn.instructions.toArray();
@@ -348,28 +344,24 @@ public class BytecodeInstrumenter {
     int localSlot = ((mn.access & Opcodes.ACC_STATIC) != 0) ? 0 : 1;
     for (int i = 0; i < argTypes.length; i++) {
       String conf = defaultConf;
-      String integ = defaultInteg;
       if (mn.visibleParameterAnnotations != null && i < mn.visibleParameterAnnotations.length) {
         List<AnnotationNode> pAnns = mn.visibleParameterAnnotations[i];
         if (pAnns != null) {
           for (AnnotationNode an : pAnns) {
             if (an.desc.contains("Sec")) {
               String c = (String) getAnnotationValue(an, "conf");
-              String in = (String) getAnnotationValue(an, "integ");
               if (c != null && !c.isEmpty()) conf = c;
-              if (in != null && !in.isEmpty()) integ = in;
             }
           }
         }
       }
       newInstructions.add(new IntInsnNode(Opcodes.BIPUSH, localSlot));
       newInstructions.add(new LdcInsnNode(conf));
-      newInstructions.add(new LdcInsnNode(integ));
       newInstructions.add(new MethodInsnNode(
           Opcodes.INVOKESTATIC,
           "jpamb/utils/SecurityMonitor",
           "initLocal",
-          "(ILjava/lang/String;Ljava/lang/String;)V",
+          "(ILjava/lang/String;)V",
           false));
       localSlot += argTypes[i].getSize();
     }
@@ -418,15 +410,14 @@ public class BytecodeInstrumenter {
           Type[] calleeArgs = Type.getArgumentTypes(minsn.desc);
           for (int p = calleeArgs.length - 1; p >= 0; p--) {
             SecurityMonitor.Label req = clearances.getOrDefault(
-                p, new SecurityMonitor.Label(defaultConf, defaultInteg));
+                p, new SecurityMonitor.Label(defaultConf));
             newInstructions.add(new LdcInsnNode(minsn.name));
             newInstructions.add(new LdcInsnNode(req.conf));
-            newInstructions.add(new LdcInsnNode(req.integ));
             newInstructions.add(new MethodInsnNode(
                 Opcodes.INVOKESTATIC,
                 "jpamb/utils/SecurityMonitor",
                 "checkSink",
-                "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
+                "(Ljava/lang/String;Ljava/lang/String;)V",
                 false));
           }
         }
@@ -438,15 +429,13 @@ public class BytecodeInstrumenter {
           for (AnnotationNode an : mn.visibleAnnotations) {
             if (an.desc.contains("Sec")) {
               String conf = (String) getAnnotationValue(an, "conf");
-              String integ = (String) getAnnotationValue(an, "integ");
               newInstructions.add(new LdcInsnNode(mn.name + ":return"));
               newInstructions.add(new LdcInsnNode((conf != null && !conf.isEmpty()) ? conf : defaultConf));
-              newInstructions.add(new LdcInsnNode((integ != null && !integ.isEmpty()) ? integ : defaultInteg));
               newInstructions.add(new MethodInsnNode(
                   Opcodes.INVOKESTATIC,
                   "jpamb/utils/SecurityMonitor",
                   "checkSink",
-                  "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
+                  "(Ljava/lang/String;Ljava/lang/String;)V",
                   false));
             }
           }

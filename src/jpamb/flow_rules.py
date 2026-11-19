@@ -2,7 +2,7 @@
 jpamb.flow_rules
 
 The confidentiality flow rules: how labels propagate through constants,
-operators, assignments, branches and join points (integrity is ignored). A
+operators, assignments, branches and join points. A
 label is a set of compartments S ⊆ C; see docs/flow-rules.md for the rules.
 
     Public / constants   ∅

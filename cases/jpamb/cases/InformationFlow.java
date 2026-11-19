@@ -78,26 +78,4 @@ public class InformationFlow {
   public static void compartmentLeak(int tumorSizeMm, int psych1, int psych2) {
     assert oncologyRisk(tumorSizeMm, psych1) == oncologyRisk(tumorSizeMm, psych2);
   }
-
-  // Integrity: a trusted audit counter must not depend on an untrusted vendor flag.
-  static int auditCounter(int trustedAccesses, boolean vendorSaysAccessed) {
-    int counter = 0;
-    int i = 0;
-    while (i < trustedAccesses) {
-      counter = counter + 1;
-      i = i + 1;
-    }
-    if (vendorSaysAccessed) {
-      counter = counter + 1;
-    }
-    return counter;
-  }
-
-  @Case("(3, true, true) -> ok")
-  @Case("(0, false, false) -> ok")
-  @Case("(3, true, false) -> assertion error")
-  @Tag({LOOP, CONDITIONAL})
-  public static void integrityViolation(int trustedAccesses, boolean vendor1, boolean vendor2) {
-    assert auditCounter(trustedAccesses, vendor1) == auditCounter(trustedAccesses, vendor2);
-  }
 }

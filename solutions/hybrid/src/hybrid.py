@@ -261,8 +261,7 @@ class HybridSecurityMonitor(security_monitor.SecurityMonitor):
         a: jpamb.security.SecurityLabel,
         b: jpamb.security.SecurityLabel,
     ) -> bool:
-        """Compare only the `conf` dimension so integrity cases do not trigger
-        false confidentiality violations."""
+        """Compare the `conf` dimension in the confidentiality lattice."""
         if "conf" not in self.lattice.lattices:
             return self.lattice.le(a, b)
         conf_lat = self.lattice.lattices["conf"]

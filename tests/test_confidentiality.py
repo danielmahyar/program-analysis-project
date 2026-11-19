@@ -283,17 +283,6 @@ def test_fixed_sink_boundary_and_confidentiality_only():
     assert result.status == "violation"
     assert "argument 0" in result.diagnostics[0].message
     bc, mid, policy = program([load(0), RETURN], labels=("Public",))
-    integ = SecurityLattice(
-        "integ", ("Trusted", "Untrusted"), (("Trusted", "Untrusted"),), "Untrusted"
-    )
-    product = ProductLattice({**policy.product_lattice.lattices, "integ": integ})
-    declared = replace(
-        policy.method(mid),
-        param_labels=(product.make_label(conf="Public", integ="Untrusted"),),
-        param_constraints=(product.make_label(conf="Public", integ="Untrusted"),),
-        return_clearance=product.make_label(conf="Public", integ="Trusted"),
-    )
-    policy = replace(policy, product_lattice=product, methods={declared.id: declared})
     assert analyze(bc, mid, policy).safe
 
 

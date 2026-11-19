@@ -1,8 +1,8 @@
 """Dynamic information-flow monitor (shadow labels) for the concrete interpreter.
 
 Every concrete value the interpreter puts in a local variable or on the operand
-stack gets a *shadow value* `(data, control)` from the class's product lattice
-L_C x L_I. The labels move with the values, one small step at a time, following
+stack gets a *shadow value* `(data, control)` from the class's confidentiality
+lattice L_C. The labels move with the values, one small step at a time, following
 the rules in `cases/jpamb/utils/Sec.java`:
 
     push c                  data := bot,           control := pc
