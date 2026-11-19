@@ -34,8 +34,18 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "solutions/dynamic/tests"]
-pythonpath = ["src", "solutions/dynamic/src"]
+testpaths = [
+  "tests",
+  "solutions/dynamic/tests",
+  "solutions/project-syntactic-confidentiality/tests",
+  "solutions/hybrid/tests",
+]
+pythonpath = [
+  "src",
+  "solutions/dynamic/src",
+  "solutions/project-syntactic-confidentiality/src",
+  "solutions/hybrid/src",
+]
 markers = [
   "slow: mark test as slow"
 ]

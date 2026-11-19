@@ -103,3 +103,45 @@ def test_untaken_secret_branch_caught_by_hybrid_pretaint():
     assert res.outcome == "assertion error"
     assert len(res.violations) == 1
     assert res.violations[0].kind == "implicit"
+
+
+def test_advanced_leaks_nested_while_corner_cases():
+    # Deeply nested while loops with narrow corner conditions: syntactic catches the leak
+    # even when the fuzzer's bounded campaign only partially covers the loop body.
+    preds_weird = run_cli("jpamb.cases.AdvancedLeaks.nestedWhileWeirdCaseLeak:(III)V")
+    assert preds_weird["assertion error"] in ("confirmed-leak", "syntactic-deep-leak")
+
+    preds_triple = run_cli("jpamb.cases.AdvancedLeaks.tripleNestedWhileCornerLeak:(IIII)V")
+    assert preds_triple["assertion error"] in ("confirmed-leak", "syntactic-deep-leak")
+
+    preds_safe = run_cli("jpamb.cases.AdvancedLeaks.nestedWhileSafe:(III)V")
+    assert preds_safe["assertion error"] in ("confirmed-safe", "not-found")
+    assert preds_safe["ok"] == "confirmed-ok"
+
+
+def test_advanced_leaks_recursion_cases():
+    preds_countdown = run_cli("jpamb.cases.AdvancedLeaks.recursiveCountdownLeak:(I)V")
+    assert preds_countdown["assertion error"] == "confirmed-leak"
+
+    preds_explicit = run_cli("jpamb.cases.AdvancedLeaks.recursiveExplicitLeak:(II)V")
+    assert preds_explicit["assertion error"] == "confirmed-leak"
+
+    preds_safe = run_cli("jpamb.cases.AdvancedLeaks.recursiveSafe:(II)V")
+    assert preds_safe["assertion error"] in ("confirmed-safe", "not-found")
+    assert preds_safe["ok"] == "confirmed-ok"
+
+
+def test_advanced_leaks_early_return_and_dead_branches():
+    preds_early_leak = run_cli("jpamb.cases.AdvancedLeaks.earlyReturnBeforeSink:(I)V")
+    assert preds_early_leak["assertion error"] == "confirmed-leak"
+
+    preds_early_safe = run_cli("jpamb.cases.AdvancedLeaks.earlyReturnSafe:(I)V")
+    assert preds_early_safe["assertion error"] == "confirmed-safe"
+
+    preds_ternary_dead = run_cli("jpamb.cases.AdvancedLeaks.ternaryDeadBranchSafe:(I)V")
+    assert preds_ternary_dead["assertion error"] == "not-found"
+    assert preds_ternary_dead["ok"] == "confirmed-ok"
+
+    preds_comp_dead = run_cli("jpamb.cases.AdvancedLeaks.computedDeadBranchSafe:(I)V")
+    assert preds_comp_dead["assertion error"] == "not-found"
+    assert preds_comp_dead["ok"] == "confirmed-ok"
