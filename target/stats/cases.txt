@@ -1,3 +1,35 @@
+jpamb.cases.AdvancedLeaks.computedDeadBranchSafe:(I)V        (99) -> ok
+jpamb.cases.AdvancedLeaks.doWhileLeak:(I)V                   (3) -> assertion error
+jpamb.cases.AdvancedLeaks.earlyReturnBeforeSink:(I)V         (-5) -> assertion error
+jpamb.cases.AdvancedLeaks.earlyReturnBeforeSink:(I)V         (10) -> ok
+jpamb.cases.AdvancedLeaks.earlyReturnSafe:(I)V               (-5) -> ok
+jpamb.cases.AdvancedLeaks.earlyReturnSafe:(I)V               (10) -> ok
+jpamb.cases.AdvancedLeaks.forLoopLeak:(I)V                   (0) -> ok
+jpamb.cases.AdvancedLeaks.forLoopLeak:(I)V                   (4) -> assertion error
+jpamb.cases.AdvancedLeaks.forLoopSafe:(I)V                   (0) -> ok
+jpamb.cases.AdvancedLeaks.forLoopSafe:(I)V                   (4) -> ok
+jpamb.cases.AdvancedLeaks.nestedThresholdLeak:(II)V          (100, 1) -> ok
+jpamb.cases.AdvancedLeaks.nestedThresholdLeak:(II)V          (500, 0) -> ok
+jpamb.cases.AdvancedLeaks.nestedThresholdLeak:(II)V          (500, 1) -> assertion error
+jpamb.cases.AdvancedLeaks.nestedWhileSafe:(III)V             (1, 1, 0) -> ok
+jpamb.cases.AdvancedLeaks.nestedWhileSafe:(III)V             (3, 4, 77) -> ok
+jpamb.cases.AdvancedLeaks.nestedWhileWeirdCaseLeak:(III)V    (2, 2, 77) -> ok
+jpamb.cases.AdvancedLeaks.nestedWhileWeirdCaseLeak:(III)V    (3, 4, 10) -> ok
+jpamb.cases.AdvancedLeaks.nestedWhileWeirdCaseLeak:(III)V    (3, 4, 77) -> assertion error
+jpamb.cases.AdvancedLeaks.overwrittenAfterBranchSafe:(I)V    (-5) -> ok
+jpamb.cases.AdvancedLeaks.overwrittenAfterBranchSafe:(I)V    (5) -> ok
+jpamb.cases.AdvancedLeaks.recursiveCountdownLeak:(I)V        (0) -> assertion error
+jpamb.cases.AdvancedLeaks.recursiveCountdownLeak:(I)V        (3) -> assertion error
+jpamb.cases.AdvancedLeaks.recursiveExplicitLeak:(II)V        (-1, 99) -> ok
+jpamb.cases.AdvancedLeaks.recursiveExplicitLeak:(II)V        (2, 99) -> assertion error
+jpamb.cases.AdvancedLeaks.recursiveSafe:(II)V                (0, 99) -> ok
+jpamb.cases.AdvancedLeaks.recursiveSafe:(II)V                (3, 99) -> ok
+jpamb.cases.AdvancedLeaks.ternaryDeadBranchSafe:(I)V         (42) -> ok
+jpamb.cases.AdvancedLeaks.ternaryImplicitLeak:(I)V           (0) -> assertion error
+jpamb.cases.AdvancedLeaks.ternaryImplicitLeak:(I)V           (100) -> assertion error
+jpamb.cases.AdvancedLeaks.tripleNestedWhileCornerLeak:(IIII)V (1, 1, 1, -42) -> ok
+jpamb.cases.AdvancedLeaks.tripleNestedWhileCornerLeak:(IIII)V (2, 3, 2, -42) -> assertion error
+jpamb.cases.AdvancedLeaks.tripleNestedWhileCornerLeak:(IIII)V (2, 3, 2, 5) -> ok
 jpamb.cases.Arrays.arrayContent:()V                          () -> assertion error
 jpamb.cases.Arrays.arrayContentAboveMinus13:()V              () -> ok
 jpamb.cases.Arrays.arrayInBounds:()V                         () -> ok

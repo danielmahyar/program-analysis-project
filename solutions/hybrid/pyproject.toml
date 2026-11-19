@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hybrid"
+version = "1.0.0"
+description = "Hybrid (syntactic AST + dynamic coverage-guided fuzzing) confidentiality analyzer for JPAMB."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "jpamb",
+  "tree-sitter>=0.26.0",
+  "tree-sitter-java>=0.23.5",
+]
+
+[project.scripts]
+hybrid = "hybrid:main"
+hybrid-analysis = "hybrid:analyse"
+hybrid-interpreter = "hybrid:interpret"
+
+[tool.uv.sources]
+jpamb = { path = "../../", editable = true }
+
+[dependency-groups]
+dev = [
+  "pytest>=9.1.1",
+]
