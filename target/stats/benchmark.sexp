@@ -650,6 +650,30 @@
     )
     :results ("assertion error")
   )
+  :"jpamb.cases.BasicLeaks.leakAfterBackEdge!(7, 1)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.leakAfterBackEdge:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 9 10 11 12 13)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.BasicLeaks.leakAfterBackEdge!(7, 2)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.leakAfterBackEdge:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.skippedLoop!(7)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.skippedLoop:(I)V" (coverage
+        :reachable (0 1 2 3 9)
+      )
+    )
+    :results (ok)
+  )
   :"jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt!(0)V" (control
     :coverage (
       :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
@@ -2244,6 +2268,22 @@
       )
     )
     :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.leakAfterBackEdge:(II)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.leakAfterBackEdge:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.BasicLeaks.skippedLoop:(I)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.skippedLoop:(I)V" (coverage
+        :reachable (0 1 2 3 9)
+      )
+    )
+    :results (ok)
   )
   :"jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt:(I)V" (control
     :coverage (

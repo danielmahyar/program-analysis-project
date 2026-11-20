@@ -626,3 +626,26 @@ def test_extended_opcodes_roundtrip_and_have_jvm_names(instruction):
     op = jvm.Opcode.from_json(dict(instruction, offset=0))
     assert op.real()
     assert jvm.Opcode.from_sexpr(sexpr.sexpr(op)) == op
+
+
+@pytest.mark.parametrize(
+    "operands, opcode, condition",
+    [([push(0)], "ifz", "eq"), ([push(-1), push(2)], "if", "lt")],
+)
+def test_constant_comparison_explores_both_successors(operands, opcode, condition):
+    # Both concrete comparisons jump directly to return. The label analysis
+    # also follows the fallthrough edge and warns about its unreachable sink.
+    fallthrough = len(operands) + 1
+    target = fallthrough + 3
+    ops = [
+        *operands,
+        branch(target, condition=condition, opr=opcode),
+        load(0),
+        invoke(),
+        VOID,
+        VOID,
+    ]
+    result = run(ops, returns=False, extra_methods=[sink()])
+    assert {fallthrough, target} <= {pc.offset for pc in result.states}
+    assert result.status == "violation"
+    assert result.diagnostics[0].offset == fallthrough + 1

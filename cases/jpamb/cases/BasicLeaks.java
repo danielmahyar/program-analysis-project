@@ -173,4 +173,29 @@ public class BasicLeaks {
     x = 0;
     publish(x);
   }
+
+  @Case("(7) -> ok")
+  @Tag({ LOOP, CONDITIONAL, CALL })
+  public static void skippedLoop(@Sec(conf = "High") int secret) {
+    int mode = 0;
+    while (mode != 0) {
+      publish(secret);
+      mode = 0;
+    }
+  }
+
+  @Case("(7, 1) -> ok")
+  @Case("(7, 2) -> assertion error")
+  @Tag({ LOOP, CONDITIONAL, CALL, EXPLICIT_FLOW })
+  public static void leakAfterBackEdge(
+      @Sec(conf = "High") int secret, @Sec(conf = "Low") int count) {
+    int phase = 0;
+    while (count > 0) {
+      if (phase == 1) {
+        publish(secret);
+      }
+      phase = 1;
+      count--;
+    }
+  }
 }
