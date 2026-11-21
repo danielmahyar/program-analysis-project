@@ -18,6 +18,25 @@ from jvm.state import PC
 
 StopReason = Literal["executions", "steps", "deadline", "input-exhausted"]
 Mutator = Callable[[Input, random.Random], Input]
+Strategy = Literal["dictionary-random", "unguided-mutation", "coverage-guided"]
+STRATEGIES: tuple[Strategy, ...] = (
+    "dictionary-random",
+    "unguided-mutation",
+    "coverage-guided",
+)
+
+
+@dataclass(frozen=True)
+class Progress:
+    """Cumulative observation after a charged execution; no expected outcomes."""
+
+    execution: int
+    steps: int
+    phase: Literal["seed", "search"]
+    coverage_locations: int
+    findings: int
+    status: str
+    elapsed_seconds: float
 
 
 @dataclass(frozen=True)
@@ -48,15 +67,18 @@ class FuzzConfig:
 
 
 class Corpus:
-    """Retain inputs that expand cumulative coverage, plus one initial fallback."""
+    """Track coverage; retain novel-coverage inputs or every distinct input."""
 
-    def __init__(self):
+    def __init__(self, *, retain_all=False):
+        self.retain_all = retain_all
         self.inputs: list[Input] = []
         self.coverage: set[PC] = set()
         self._known: set[Input] = set()
 
     def consider(self, inputs: Input, coverage: frozenset[PC]) -> bool:
-        interesting = not self.inputs or bool(coverage - self.coverage)
+        interesting = (
+            self.retain_all or not self.inputs or bool(coverage - self.coverage)
+        )
         self.coverage.update(coverage)
         if interesting and inputs not in self._known:
             self.inputs.append(inputs)
@@ -90,6 +112,7 @@ class FuzzResult:
     unsupported_runs: int
     stop_reason: StopReason
     elapsed_seconds: float
+    strategy: Strategy = "coverage-guided"
 
 
 def fuzz(
@@ -102,6 +125,8 @@ def fuzz(
     seeds: Iterable[Input] | None = None,
     mutator: Mutator | None = None,
     clock: Callable[[], float] = time.monotonic,
+    strategy: Strategy = "coverage-guided",
+    observer: Callable[[Progress], None] | None = None,
 ) -> FuzzResult:
     """Explore a method using observations from an injected concrete runner.
 
@@ -109,7 +134,11 @@ def fuzz(
     unsupported/limited runs remains useful, but cannot establish an outcome.
     The deadline is cooperative: checked between calls, not an interrupt of an
     in-flight runner. The adapter must enforce the instruction limit itself.
+    Comparison strategies change only post-seed input selection/retention.
+    The optional observer receives charged progress after every execution.
     """
+    if strategy not in STRATEGIES:
+        raise ValueError(f"unknown search strategy: {strategy}")
     if tuple(method_id.extension.params) != input_space.parameters:
         raise ValueError("input space does not match the method signature")
     config = config or FuzzConfig()
@@ -121,7 +150,7 @@ def fuzz(
         )
     )
     mutate = mutator if mutator is not None else input_space.mutate
-    corpus = Corpus()
+    corpus = Corpus(retain_all=strategy == "unguided-mutation")
     findings: dict[tuple, Finding] = {}
     outcomes: set[str] = set()
     counts: Counter[str] = Counter()
@@ -152,10 +181,12 @@ def fuzz(
             except StopIteration:
                 seeding = False
         if not seeding:
-            if corpus.inputs:
-                candidate = mutate(rand.choice(corpus.inputs), rand)
-            else:
+            if not corpus.inputs:
                 candidate = input_space.seeds(1)[0]
+            elif strategy == "dictionary-random":
+                candidate = input_space.sample(rand)
+            else:
+                candidate = mutate(rand.choice(corpus.inputs), rand)
         input_space.validate(candidate)
 
         limit = config.step_limit
@@ -177,6 +208,18 @@ def fuzz(
                 violation.fingerprint,
                 Finding(candidate, violation, executions, steps, limit),
             )
+        if observer is not None:
+            observer(
+                Progress(
+                    execution=executions,
+                    steps=steps,
+                    phase="seed" if seeding else "search",
+                    coverage_locations=len(corpus.coverage),
+                    findings=len(findings),
+                    status=observed.status,
+                    elapsed_seconds=clock() - started,
+                )
+            )
 
     return FuzzResult(
         method_id=method_id,
@@ -193,4 +236,5 @@ def fuzz(
         unsupported_runs=counts["unsupported"],
         stop_reason=reason,
         elapsed_seconds=clock() - started,
+        strategy=strategy,
     )

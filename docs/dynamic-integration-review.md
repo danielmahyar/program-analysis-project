@@ -6,6 +6,23 @@ reference; it did not fetch or modify remote branches.
 
 ## Compiled benchmark validation, 2026-11-21
 
+### Controlled evaluation harness
+
+`solutions/dynamic/src/evaluate_fuzz.py` now compares dictionary random sampling,
+unguided mutation, and coverage-guided mutation through the same campaign loop
+and concrete runner. Shared initial seeds and their costs/discoveries are recorded
+separately. Per-trial replayable reports, discovery/coverage progress, aggregate
+CSV/JSON, unsuccessful trials, and partial experiment status are preserved.
+
+The eight-method pilot completed 120 trials and the full 68-method comparison
+completed 1,020. All 628 full-run diagnostics replayed exactly; all 54 distinct
+witness inputs also produced assertion errors in the instrumented JVM. The
+selected regression suite passes 352 tests. Under these settings, initial seeds
+find violations in 39 methods; dictionary sampling, unguided mutation, and guided
+mutation find additional hard-example leaks in 8, 3, and 2 trials respectively.
+See [evaluation methodology and results](fuzzing-evaluation.md) for budgets,
+per-method results, validation, and interpretation limits.
+
 ### Saved campaign reports and replay
 
 The next milestone is implemented in `solutions/dynamic/src/fuzz_reports.py`
@@ -21,7 +38,7 @@ Hypothetical hybrid findings retain a separate mode/evidence kind and are never
 presented as concrete witnesses. Actual compiled Hospital examples were saved
 and replayed successfully in both modes through the installed console command.
 The selected regression suite passed 334 tests, including 33 new report/replay
-checks. The remaining planned milestone is the controlled evaluation harness.
+checks. The controlled evaluation harness is implemented in the follow-up above.
 
 The implementation at `28e47a4` was validated against compiled Java classes,
 after starting Docker Desktop and building with the configured
@@ -60,8 +77,8 @@ to measure in the planned evaluation, rather than a mismatch in the concrete
 confidentiality checks.
 
 Detailed JSON, JVM traces, pytest results, and CLI logs are saved under the ignored
-`reports/benchmark-validation-20261121/` directory. The next implementation work
-is persistent general-purpose findings/replay and a controlled evaluation harness.
+`reports/benchmark-validation-20261121/` directory. Persistent findings/replay and
+the controlled evaluation harness have since been implemented as described above.
 
 ## Implementation follow-up, 2026-11-21
 
@@ -88,7 +105,8 @@ the working tree. The remaining sections preserve the original review of
 Heap/reference effects and arbitrary calls are explicitly unsupported for
 confidentiality runs; ordinary non-security execution remains available. The
 compiled validation results above supersede this follow-up's original pending
-validation. Persistent reports, CLI replay, and strategy comparisons remain.
+validation. Persistent reports, CLI replay, and strategy comparisons are now
+implemented in the later follow-ups above.
 
 ## What changed
 

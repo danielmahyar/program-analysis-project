@@ -1,0 +1,14 @@
+{
+  "format": "jpamb-fuzz-targets",
+  "schema_version": 1,
+  "methods": [
+    "jpamb.cases.InfoFlow.explicitLeak:(I)V",
+    "jpamb.cases.Hospital.compartmentLeak:(I)V",
+    "jpamb.cases.Hospital.implicitCompartmentLeak:(I)V",
+    "jpamb.cases.Hospital.deadBranchLeak:(I)V",
+    "jpamb.cases.InfoFlow.overwrittenBeforeSink:(I)V",
+    "jpamb.cases.InfoFlow.pcRestoredAfterBranch:(I)V",
+    "jpamb.cases.AdvancedLeaks.nestedWhileWeirdCaseLeak:(III)V",
+    "jpamb.cases.AdvancedLeaks.tripleNestedWhileCornerLeak:(IIII)V"
+  ]
+}

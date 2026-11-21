@@ -228,9 +228,10 @@ select examples solely because they favour coverage guidance.
 
 ## Evaluation
 
-Compare ordinary random testing, constant/small-value random testing, and
-coverage-guided mutation. Include an unguided mutation variant using the same
-initial seeds and mutation operators to isolate the contribution of coverage.
+The implemented initial comparison uses constant/small-value dictionary random
+testing, unguided mutation, and coverage-guided mutation. The two mutation
+strategies share initial seeds and mutation operators to isolate coverage-based
+retention. Pure full-range random testing can be added as a separate baseline.
 Run every strategy through the same concrete runner and confidentiality policy.
 
 Predeclare budgets and use multiple recorded random seeds. Charge initial seeds
@@ -274,8 +275,11 @@ Delivery order:
    Java examples through JPAMB. Recursion remains outside the supported subset.
 3. Completed: saved campaign reports, exact-input CLI replay, and opt-in export
    from existing dynamic/hybrid JPAMB commands. See the dynamic README for usage.
-4. Run the baseline comparisons and document benefits and limits. Add optional
-   minimization or richer feedback only after the comparison works.
+4. Implemented: `evaluate_fuzz.py` runs the three strategies through the same
+   loop and runner, saving replayable per-trial reports and aggregate CSV/JSON.
+   Checked-in manifests cover an eight-method pilot and the 68 validated
+   non-recursive methods. See [evaluation methodology and results](fuzzing-evaluation.md).
+   Add optional minimization or richer feedback only after assessing this comparison.
 
 The current checkout has generated `target/classes` and `target/decompiled`
 artifacts from the Docker compile/decompile build. New checkouts still need that

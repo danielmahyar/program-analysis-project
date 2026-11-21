@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from coverage_fuzz import Finding, FuzzConfig, FuzzResult
+from coverage_fuzz import STRATEGIES, Finding, FuzzConfig, FuzzResult
 from fuzz_contract import OUTCOMES, Runner, RunResult, Violation
 from fuzz_inputs import InputSpace
 
@@ -162,6 +162,8 @@ def parse_report(document) -> SavedReport:
         )
         for encoded in _list(document["corpus"]):
             _input(encoded, space)
+        if document["generator"].get("strategy", "coverage-guided") not in STRATEGIES:
+            raise ReportError("unknown search strategy")
         seeds = document["generator"]["seed_inputs"]
         if seeds is not None:
             for encoded in _list(seeds):
@@ -337,6 +339,7 @@ def create_report(
         "configuration": {"fuzz": asdict(campaign.config), "confidentiality": security},
         "generator": {
             "name": generator,
+            "strategy": campaign.strategy,
             "dictionary": list(input_space.dictionary),
             "seed_inputs": None
             if seed_inputs is None
