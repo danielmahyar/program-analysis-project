@@ -10,6 +10,17 @@
     )
     :results (ok)
   )
+  :"jpamb.cases.AdvancedLeaks.doWhileLeak!(0)V" (control
+    :coverage (
+      :"jpamb.cases.AdvancedLeaks.doWhileLeak:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11)
+      )
+      :"jpamb.cases.AdvancedLeaks.publishLow:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
   :"jpamb.cases.AdvancedLeaks.doWhileLeak!(3)V" (control
     :coverage (
       :"jpamb.cases.AdvancedLeaks.doWhileLeak:(I)V" (coverage
@@ -641,6 +652,17 @@
       )
     )
     :results ("assertion error")
+  )
+  :"jpamb.cases.BasicLeaks.implicitWhile!(0)V" (control
+    :coverage (
+      :"jpamb.cases.BasicLeaks.implicitWhile:(I)V" (coverage
+        :reachable (0 1 2 3 4 10 11 12)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
   )
   :"jpamb.cases.BasicLeaks.implicitWhile!(3)V" (control
     :coverage (
@@ -1853,10 +1875,13 @@
   :"jpamb.cases.AdvancedLeaks.doWhileLeak:(I)V" (control
     :coverage (
       :"jpamb.cases.AdvancedLeaks.doWhileLeak:(I)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10)
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11)
+      )
+      :"jpamb.cases.AdvancedLeaks.publishLow:(I)V" (coverage
+        :reachable (0)
       )
     )
-    :results ("assertion error")
+    :results ("assertion error" ok)
   )
   :"jpamb.cases.AdvancedLeaks.earlyReturnBeforeSink:(I)V" (control
     :coverage (
@@ -2240,10 +2265,13 @@
   :"jpamb.cases.BasicLeaks.implicitWhile:(I)V" (control
     :coverage (
       :"jpamb.cases.BasicLeaks.implicitWhile:(I)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11)
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12)
+      )
+      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
+        :reachable (0)
       )
     )
-    :results ("assertion error")
+    :results ("assertion error" ok)
   )
   :"jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt:(I)V" (control
     :coverage (

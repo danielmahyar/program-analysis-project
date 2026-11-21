@@ -1,4 +1,5 @@
 jpamb.cases.AdvancedLeaks.computedDeadBranchSafe:(I)V        (99) -> ok
+jpamb.cases.AdvancedLeaks.doWhileLeak:(I)V                   (0) -> ok
 jpamb.cases.AdvancedLeaks.doWhileLeak:(I)V                   (3) -> assertion error
 jpamb.cases.AdvancedLeaks.earlyReturnBeforeSink:(I)V         (-5) -> assertion error
 jpamb.cases.AdvancedLeaks.earlyReturnBeforeSink:(I)V         (10) -> ok
@@ -69,6 +70,7 @@ jpamb.cases.BasicLeaks.implicitReturn:(I)I                   (0) -> assertion er
 jpamb.cases.BasicLeaks.implicitReturn:(I)I                   (1) -> assertion error
 jpamb.cases.BasicLeaks.implicitSinkInBranch:(I)V             (0) -> ok
 jpamb.cases.BasicLeaks.implicitSinkInBranch:(I)V             (1) -> assertion error
+jpamb.cases.BasicLeaks.implicitWhile:(I)V                    (0) -> ok
 jpamb.cases.BasicLeaks.implicitWhile:(I)V                    (3) -> assertion error
 jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt:(I)V      (0) -> ok
 jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt:(I)V      (1) -> ok

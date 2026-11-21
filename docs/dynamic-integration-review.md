@@ -4,6 +4,48 @@ Reviewed checkout: `d200a57` on `main`. Comparison base: `2897137`, the independ
 fuzzing milestone. This review records the local checkout and its existing origin
 reference; it did not fetch or modify remote branches.
 
+## Compiled benchmark validation, 2026-11-21
+
+The implementation at `28e47a4` was validated against compiled Java classes,
+after starting Docker Desktop and building with the configured
+`ghcr.io/kalhauge/jvm2json:jdk-latest` image (digest
+`sha256:86c333ed74caf4459a17b05cd03b7b32f3bd5814b7826aa0da7f9a260562b377`).
+
+- 301 selected tests pass, including both formerly skipped compiled-artifact
+  suites and two new benchmark-ground-truth regression checks. No selected tests
+  are skipped.
+- JPAMB interpreter validation passes all 115 non-recursive security cases.
+- Direct execution of all 121 declared security inputs completes 118 with zero
+  outcome differences from actual JVM executions. The remaining three inputs
+  reach recursive calls and return `unsupported`, not a fabricated outcome.
+- Bounded JVM tracing covers 202 declared inputs. The 198 terminating traces
+  agree with their annotations. Four exceed the 2500-instruction trace budget:
+  three declared infinite-loop cases and the finite `Calls.allPrimesArePositive(100)`
+  example. Budget exhaustion is not treated as a nontermination proof.
+- Both dynamic and hybrid analysis commands run over the 68 non-recursive
+  confidentiality methods. This validates command integration, not perfect input
+  search or a statistical comparison of their performance.
+
+The analysis smoke runs exposed two omitted legitimate outcomes:
+`BasicLeaks.implicitWhile(0)` and `AdvancedLeaks.doWhileLeak(0)` both return `ok`
+on the JVM and our concrete interpreter. Their annotations previously listed
+only `assertion error`, incorrectly penalizing discovered successful executions.
+Both `@Case("(0) -> ok")` annotations were added after JVM verification, and
+the case/benchmark metadata was regenerated. The semantic metadata delta is
+exactly two new input entries and updated aggregates for those two methods;
+existing entries were not removed. Regression tests preserve this evidence.
+
+The default bounded dynamic search still misses the violating input combinations
+in `AdvancedLeaks.nestedWhileWeirdCaseLeak` and
+`AdvancedLeaks.tripleNestedWhileCornerLeak`. Executing their supplied violating
+inputs directly does detect the violations, so this is an exploration limitation
+to measure in the planned evaluation, rather than a mismatch in the concrete
+confidentiality checks.
+
+Detailed JSON, JVM traces, pytest results, and CLI logs are saved under the ignored
+`reports/benchmark-validation-20261121/` directory. The next implementation work
+is persistent general-purpose findings/replay and a controlled evaluation harness.
+
 ## Implementation follow-up, 2026-11-21
 
 The runtime corrections and real-runner regression tests are now implemented in
@@ -27,9 +69,9 @@ the working tree. The remaining sections preserve the original review of
   ordinary assertions/numeric cases, incomplete executions, and campaign replay.
 
 Heap/reference effects and arbitrary calls are explicitly unsupported for
-confidentiality runs; ordinary non-security execution remains available. Actual
-compiled JPAMB evaluation, persistent reports, CLI replay, and strategy
-comparisons are still separate next steps.
+confidentiality runs; ordinary non-security execution remains available. The
+compiled validation results above supersede this follow-up's original pending
+validation. Persistent reports, CLI replay, and strategy comparisons remain.
 
 ## What changed
 
@@ -213,5 +255,5 @@ separate. Avoid duplicate outcome accounting in the wrapper.
    mutation with shared seeds, operators, policy, and budgets.
 
 The original review changed documentation only. Its semantic corrections and
-integration regressions have since been implemented as described in the follow-up
-above. The next validation stage requires generated JPAMB bytecode artifacts.
+integration regressions have since been implemented and validated on generated
+JPAMB bytecode as described in the follow-ups above.

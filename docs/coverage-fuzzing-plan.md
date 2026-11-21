@@ -9,8 +9,11 @@ the Python confidentiality rules and adds real-runner integration regressions,
 including configuration, fixed writes, return defaults, control dependencies,
 and a replayable fuzzing campaign. See the
 [integration review and follow-up](dynamic-integration-review.md) for the original
-discrepancies and their resolution. Compiled JPAMB benchmark validation,
-persistent reports, and CLI replay remain future work.
+discrepancies and their resolution. Compiled JPAMB validation now passes for the
+supported subset: 301 selected tests, 115 interpreter cases, and 118 completed
+security executions agreeing with the JVM. Three recursive executions remain
+unsupported. Persistent user-facing reports, CLI replay, and controlled strategy
+comparisons remain future work.
 
 ## Purpose and scope
 
@@ -264,17 +267,19 @@ Delivery order:
 
 1. Agree on the security and runner contracts. Implement the independent result
    types, typed inputs, corpus, campaign logic, and controlled-runner tests.
-2. Completed for bytecode fixtures: align `dynamic.make_runner` and the Python
+2. Completed: align `dynamic.make_runner` and the Python
    monitor with the confidentiality rules, share fixed-local/return-default
-   settings, and add real-runner/fuzzer regression tests. Validate the generated
-   Java examples through JPAMB before measuring search performance.
+   settings, add real-runner/fuzzer regression tests, and validate the generated
+   Java examples through JPAMB. Recursion remains outside the supported subset.
 3. Add replay, the detailed report, and JPAMB prediction integration.
 4. Run the baseline comparisons and document benefits and limits. Add optional
    minimization or richer feedback only after the comparison works.
 
-The current checkout lacks generated `target/classes` and `target/decompiled`
-artifacts. Synthetic Python fixtures can support step 1. Real benchmark
-integration requires the normal JPAMB compile/decompile setup first.
+The current checkout has generated `target/classes` and `target/decompiled`
+artifacts from the Docker compile/decompile build. New checkouts still need that
+build before compiled benchmark tests can run. Validation outputs are in the
+ignored `reports/benchmark-validation-20261121/` directory; they are validation
+artifacts, not the planned general-purpose fuzzing report/replay commands.
 
 ## References
 
