@@ -20,10 +20,10 @@ Run from the repository root:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
 import sys
 import time
+from dataclasses import dataclass, field
+from pathlib import Path
 
 # Allow importing sibling modules in `solutions/dynamic/src` and `solutions/project-syntactic-confidentiality/src`
 ROOT = Path(__file__).resolve().parents[3]
@@ -33,20 +33,21 @@ for p in (str(DYNAMIC_SRC), str(SYNTACTIC_SRC)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import coverage_fuzz  # noqa: E402
-import dynamic as dyn  # noqa: E402
-import fuzz_contract  # noqa: E402
-import fuzz_inputs  # noqa: E402
-import jpamb  # noqa: E402
-from jpamb import flow_rules as rules  # noqa: E402
-from jpamb.flow_rules import Label  # noqa: E402
-from jpamb.security import ClassSecurityPolicy, MethodSecurityPolicy  # noqa: E402
-import jvm  # noqa: E402
-import jvm.state as jvmc  # noqa: E402
-import security_monitor  # noqa: E402
-import syntactic_confidentiality as sc  # noqa: E402
-import tree_sitter  # noqa: E402
-import tree_sitter_java  # noqa: E402
+import coverage_fuzz
+import dynamic as dyn
+import fuzz_contract
+import fuzz_inputs
+import security_monitor
+import syntactic_confidentiality as sc
+import tree_sitter
+import tree_sitter_java
+
+import jpamb
+import jvm
+import jvm.state as jvmc
+from jpamb import flow_rules as rules
+from jpamb.flow_rules import Label
+from jpamb.security import ClassSecurityPolicy
 
 NAME = "hybrid-confidentiality"
 VERSION = "1.0"
@@ -202,7 +203,9 @@ def run_syntactic_analysis(
 # -----------------------------------------------------------------------------
 
 
-def branch_modified_slots(opcodes: list[jvm.Opcode], ipdom: list[int]) -> dict[int, set[int]]:
+def branch_modified_slots(
+    opcodes: list[jvm.Opcode], ipdom: list[int]
+) -> dict[int, set[int]]:
     """For each conditional branch instruction `i`, compute the set of local slots
     written (`Store` / `Incr`) along any path from `i` before reaching `ipdom[i]`.
 
@@ -225,9 +228,7 @@ def branch_modified_slots(opcodes: list[jvm.Opcode], ipdom: list[int]) -> dict[i
                 continue
             visited.add(curr)
             cop = opcodes[curr]
-            if isinstance(cop, jvm.Store):
-                slots.add(cop.index)
-            elif isinstance(cop, jvm.Incr):
+            if isinstance(cop, (jvm.Store, jvm.Incr)):
                 slots.add(cop.index)
             for nxt in succs[curr]:
                 if nxt not in visited:
@@ -237,118 +238,73 @@ def branch_modified_slots(opcodes: list[jvm.Opcode], ipdom: list[int]) -> dict[i
 
 
 class HybridSecurityMonitor(security_monitor.SecurityMonitor):
-    """Confidentiality-focused dynamic monitor (`conf` dimension only) with an
-    optional `hybrid_branch_taint` mode that taints locals written in untaken
-    arms of a confidential branch when execution reaches its postdominator."""
+    """Shared concrete confidentiality rules plus optional hypothetical branch taints.
+
+    The optional taints account for unexecuted writes. They are hybrid analysis
+    evidence, not a concrete witness for the input that was actually executed.
+    """
 
     def __init__(
         self,
-        bc: jpamb.Bytecode,
-        policy: ClassSecurityPolicy,
-        methodid: jvm.AbsMethodID,
+        bc,
+        policy,
+        methodid,
+        config=None,
         *,
+        prepared=None,
         hybrid_branch_taint: bool = False,
     ):
-        super().__init__(bc, policy, methodid)
+        super().__init__(bc, policy, methodid, config, prepared=prepared)
         self.hybrid_branch_taint = hybrid_branch_taint
-        self._modified_slots_cache: dict[jvm.AbsMethodID, dict[int, set[int]]] = {}
-        self._pending_branch_taints: list[
-            tuple[int, jpamb.security.SecurityLabel, set[int]]
-        ] = []
-
-    def _conf_le(
-        self,
-        a: jpamb.security.SecurityLabel,
-        b: jpamb.security.SecurityLabel,
-    ) -> bool:
-        """Compare the `conf` dimension in the confidentiality lattice."""
-        if "conf" not in self.lattice.lattices:
-            return self.lattice.le(a, b)
-        conf_lat = self.lattice.lattices["conf"]
-        return conf_lat.le(
-            a.get("conf", conf_lat.default_level),
-            b.get("conf", conf_lat.default_level),
-        )
-
-    def _classify(
-        self,
-        sv: security_monitor.ShadowValue,
-        ctx: jpamb.security.SecurityLabel,
-        clearance: jpamb.security.SecurityLabel,
-    ) -> fuzz_contract.ViolationKind:
-        data_bad = not self._conf_le(sv.data, clearance)
-        ctrl_bad = not self._conf_le(self.join(sv.control, ctx), clearance)
-        if data_bad and ctrl_bad:
-            return "mixed"
-        if data_bad:
-            return "explicit"
-        if ctrl_bad:
-            return "implicit"
-        return "explicit"
-
-    def _certify(
-        self,
-        sv: security_monitor.ShadowValue,
-        clearance: jpamb.security.SecurityLabel,
-        where: str,
-    ) -> bool:
-        ctx = self.pc()
-        effective = self.join(sv.data, sv.control, ctx)
-        if self._conf_le(effective, clearance):
-            return True
-        kind = self._classify(sv, ctx, clearance)
-        self.violations.append(
-            fuzz_contract.Violation(
-                pc=self.current_location,
-                target=where,
-                effective=str(effective),
-                allowed=str(clearance),
-                context=str(ctx),
-                kind=kind,
-            )
-        )
-        self.last_violation = (
-            f"SECURITY VIOLATION ({kind}) at {where}: "
-            f"{effective} cannot flow to {clearance}"
-        )
-        return False
+        self._modified_slots_cache = {}
+        self._pending_branch_taints = {}
 
     def at(self, pc: jvmc.PC):
         super().at(pc)
-        if self.hybrid_branch_taints_active():
-            remaining = []
-            for merge_offset, cond_label, slots in self._pending_branch_taints:
-                if merge_offset == pc.offset:
-                    for slot in slots:
-                        old = self.frame.locals.get(slot, self._bot_value())
-                        self.frame.locals[slot] = security_monitor.ShadowValue(
-                            old.data, self.join(old.control, cond_label)
+        for key, (merge, label, slots) in list(self._pending_branch_taints.items()):
+            if key[0] == pc.method and merge == pc.offset:
+                for slot in slots:
+                    # Do not invent an initialized concrete/shadow local merely
+                    # because another branch could have assigned it.
+                    if slot in self.frame.locals:
+                        self.frame.locals[slot] = self.frame.locals[slot].under(
+                            label, self.lattice
                         )
-                else:
-                    remaining.append((merge_offset, cond_label, slots))
-            self._pending_branch_taints = remaining
-
-    def hybrid_branch_taints_active(self) -> bool:
-        return self.hybrid_branch_taint and bool(self._pending_branch_taints)
+                del self._pending_branch_taints[key]
 
     def branch(self, offset: int, consumed: int):
-        operands = [self._pop() for _ in range(consumed)]
-        cond = self.join(*(self.full(o) for o in operands))
-        f = self.frame
-        elevated = self.join(self.pc(), cond)
-        merge_offset = f.ipdom[offset]
-        f.pc_stack.append((merge_offset, elevated))
-
-        if self.hybrid_branch_taint and not self._conf_le(elevated, self.bot):
-            mid = f.method
-            if mid not in self._modified_slots_cache:
-                opcodes = self.bc.getmethod(mid).opcodes
-                self._modified_slots_cache[mid] = branch_modified_slots(
-                    opcodes, f.ipdom
+        super().branch(offset, consumed)
+        if not self.hybrid_branch_taint:
+            return
+        frame = self.frame
+        elevated = frame.contexts[offset]
+        if self.lattice.le(elevated, self.bot):
+            return
+        model = frame.model
+        mid = model.method.id
+        if mid not in self._modified_slots_cache:
+            pdom = model.postdom
+            ipdom = []
+            for index in range(len(model.method.opcodes)):
+                strict = pdom[index] - {index}
+                ipdom.append(
+                    next(
+                        (node for node in strict if pdom[node] == strict),
+                        len(model.method.opcodes),
+                    )
                 )
-            slots = self._modified_slots_cache[mid].get(offset, set())
-            if slots:
-                self._pending_branch_taints.append((merge_offset, elevated, slots))
+            self._modified_slots_cache[mid] = (
+                ipdom,
+                branch_modified_slots(model.method.opcodes, ipdom),
+            )
+        ipdom, modified = self._modified_slots_cache[mid]
+        slots = modified.get(offset, set())
+        if slots:
+            self._pending_branch_taints[(mid, offset)] = (
+                ipdom[offset],
+                elevated,
+                slots,
+            )
 
 
 def make_hybrid_runner(
@@ -357,63 +313,21 @@ def make_hybrid_runner(
     *,
     hybrid_branch_taint: bool = False,
 ):
-    """Build a concrete runner using `HybridSecurityMonitor` (confidentiality-only)."""
+    """Use the shared runner's budgets, fresh state, configuration, and results."""
 
-    def run_once(
-        method_id: jvm.AbsMethodID,
-        inputs: jpamb.case.Input,
-        *,
-        step_limit: int,
-        security_config: object | None = None,
-    ) -> fuzz_contract.RunResult:
-        if step_limit < 0:
-            raise ValueError("step_limit must be non-negative")
-        try:
-            state = dyn.initial(bc, method_id, inputs)
-            mon: security_monitor.NoMonitor
-            if policy is None:
-                mon = security_monitor.NoMonitor()
-            else:
-                mon = HybridSecurityMonitor(
-                    bc,
-                    policy,
-                    method_id,
-                    hybrid_branch_taint=hybrid_branch_taint,
-                )
-        except (NotImplementedError, TypeError, IndexError) as exc:
-            return fuzz_contract.RunResult(
-                "unsupported", frozenset(), 0, detail=str(exc)
-            )
+    def monitor_factory(bytecode, active_policy, method_id, config, *, prepared):
+        if active_policy is None:
+            return security_monitor.NoMonitor()
+        return HybridSecurityMonitor(
+            bytecode,
+            active_policy,
+            method_id,
+            config,
+            prepared=prepared,
+            hybrid_branch_taint=hybrid_branch_taint,
+        )
 
-        coverage: set[jvmc.PC] = set()
-        steps = 0
-        for _ in range(step_limit):
-            current_pc = state.frames.peek().pc
-            try:
-                pc, nxt = dyn.step(bc, state, mon)
-            except (NotImplementedError, TypeError, IndexError) as exc:
-                return fuzz_contract.RunResult(
-                    "unsupported",
-                    frozenset(coverage),
-                    steps,
-                    detail=f"at {current_pc}: {exc}",
-                )
-            steps += 1
-            coverage.add(pc)
-            if isinstance(nxt, str):
-                return fuzz_contract.RunResult(
-                    "completed",
-                    frozenset(coverage),
-                    steps,
-                    outcome=nxt,
-                    violations=tuple(mon.violations),
-                    detail=mon.last_violation,
-                )
-            state = nxt
-
-        return fuzz_contract.RunResult("step-limit", frozenset(coverage), steps)
-
-    return run_once
+    return dyn.make_runner(bc, policy, monitor_factory=monitor_factory)
 
 
 # -----------------------------------------------------------------------------
@@ -431,6 +345,7 @@ class HybridReport:
     covered_instructions: int
     total_instructions: int
     predictions: dict[str, str]
+    execution_statuses: dict[str, int] = field(default_factory=dict)
 
     @property
     def full_coverage(self) -> bool:
@@ -470,6 +385,8 @@ def analyze_hybrid(
 
     base_runner = make_hybrid_runner(bc, policy, hybrid_branch_taint=False)
     outcomes: dict[str, int] = {}
+    statuses: dict[str, int] = {}
+    settings = dyn.security_settings()
     covered_offsets: set[int] = set()
     runs = 0
     findings: list[coverage_fuzz.Finding] = []
@@ -479,17 +396,15 @@ def analyze_hybrid(
     ) -> fuzz_contract.RunResult:
         nonlocal runs
         runs += 1
-        budget = max_steps if runs <= 25 else min(step_limit, 500)
         res = base_runner(
-            mid, inputs, step_limit=budget, security_config=security_config
+            mid, inputs, step_limit=step_limit, security_config=security_config
         )
+        statuses[res.status] = statuses.get(res.status, 0) + 1
         for pc in res.coverage:
             if pc.method == methodid:
                 covered_offsets.add(pc.offset)
         if res.status == "completed" and res.outcome is not None:
             outcomes[res.outcome] = outcomes.get(res.outcome, 0) + 1
-        elif res.status == "step-limit":
-            outcomes["*"] = outcomes.get("*", 0) + 1
         return res
 
     # Combine AST constants and bytecode constants for fuzzing seeds
@@ -514,6 +429,7 @@ def analyze_hybrid(
                 seed_limit=max(1, len(seeds)),
             ),
             seeds=seeds,
+            security_config=settings,
         )
         findings = list(campaign.findings)
     else:
@@ -521,7 +437,9 @@ def analyze_hybrid(
         for inp in dyn.fallback_complex_inputs(bc, methodid):
             if runs >= effective_runs or time.monotonic() > deadline:
                 break
-            tracking_runner(methodid, inp, step_limit=max_steps)
+            tracking_runner(
+                methodid, inp, step_limit=max_steps, security_config=settings
+            )
 
     # Secondary check: if syntactic found a leak, but concrete dynamic execution
     # found no violation and coverage was incomplete, check with hybrid untaken-branch
@@ -531,28 +449,33 @@ def analyze_hybrid(
     total_insns = len(method.opcodes)
     full_cov = len(covered_offsets) >= total_insns
 
-    if syntactic.leaks and not findings and not full_cov:
-        if all(isinstance(p, (jvm.Int, jvm.Boolean)) for p in methodid.extension.params):
-            pre_taint_runner = make_hybrid_runner(
-                bc, policy, hybrid_branch_taint=True
-            )
-            space = fuzz_inputs.InputSpace(
-                tuple(methodid.extension.params),
-                fuzz_inputs.interesting_integers(combined_constants),
-            )
-            probe_campaign = coverage_fuzz.fuzz(
-                methodid,
-                space,
-                pre_taint_runner,
-                config=coverage_fuzz.FuzzConfig(
-                    max_executions=min(8, max_runs),
-                    step_limit=max_steps,
-                    timeout_seconds=0.5,
-                    seed=0,
-                    seed_limit=8,
-                ),
-            )
-            hybrid_pre_taint_findings = list(probe_campaign.findings)
+    if (
+        syntactic.leaks
+        and not findings
+        and not full_cov
+        and all(
+            isinstance(p, (jvm.Int, jvm.Boolean)) for p in methodid.extension.params
+        )
+    ):
+        pre_taint_runner = make_hybrid_runner(bc, policy, hybrid_branch_taint=True)
+        space = fuzz_inputs.InputSpace(
+            tuple(methodid.extension.params),
+            fuzz_inputs.interesting_integers(combined_constants),
+        )
+        probe_campaign = coverage_fuzz.fuzz(
+            methodid,
+            space,
+            pre_taint_runner,
+            config=coverage_fuzz.FuzzConfig(
+                max_executions=min(8, max_runs),
+                step_limit=max_steps,
+                timeout_seconds=0.5,
+                seed=0,
+                seed_limit=8,
+            ),
+            security_config=settings,
+        )
+        hybrid_pre_taint_findings = list(probe_campaign.findings)
 
     predictions = fuse_predictions(
         syntactic=syntactic,
@@ -561,6 +484,7 @@ def analyze_hybrid(
         hybrid_pre_taint_findings=tuple(hybrid_pre_taint_findings),
         runs=runs,
         full_coverage=full_cov,
+        limited_runs=statuses.get("step-limit", 0),
     )
 
     return HybridReport(
@@ -572,6 +496,7 @@ def analyze_hybrid(
         covered_instructions=len(covered_offsets),
         total_instructions=total_insns,
         predictions=predictions,
+        execution_statuses=statuses,
     )
 
 
@@ -583,6 +508,7 @@ def fuse_predictions(
     hybrid_pre_taint_findings: tuple[coverage_fuzz.Finding, ...],
     runs: int,
     full_coverage: bool,
+    limited_runs: int = 0,
 ) -> dict[str, str]:
     """Fuse syntactic AST leak detection with dynamic concrete witnesses and coverage.
 
@@ -596,7 +522,7 @@ def fuse_predictions(
     preds: dict[str, str] = {}
     for q in jpamb.QUERIES:
         if q == "*":
-            if outcomes.get("*", 0) == runs and runs > 0:
+            if limited_runs == runs and runs > 0:
                 preds[q] = "timeout"
             else:
                 preds[q] = "not-found"
@@ -608,12 +534,11 @@ def fuse_predictions(
                 # Concrete runtime witness found a leak without syntactic flag
                 preds[q] = "dynamic-only-leak"
             elif has_syntactic_leak and full_coverage:
-                # Syntactic flagged a leak, yet 100% of bytecode instructions ran without a violation!
-                # (e.g., BasicLeaks.staticFlagsButDynamicDoesnt where x is overwritten before sink)
+                # A calibrated category for an unconfirmed warning with full
+                # instruction coverage; this does not prove a false positive.
                 preds[q] = "syntactic-false-positive"
             elif has_syntactic_leak and not full_coverage:
-                # Syntactic (which already prunes dead constant branches via const_env)
-                # found a real leak inside a deep branch/loop that the fuzzer's budget didn't reach!
+                # A static warning remains unconfirmed under incomplete coverage.
                 preds[q] = "syntactic-deep-leak"
             elif not has_syntactic_leak and full_coverage:
                 preds[q] = "confirmed-safe"
@@ -652,7 +577,7 @@ def interpret():
 
     state = dyn.initial(bc, methodid, input_val)
     mon = (
-        HybridSecurityMonitor(bc, policy, methodid)
+        HybridSecurityMonitor(bc, policy, methodid, dyn.security_settings())
         if policy is not None
         else security_monitor.NoMonitor()
     )
@@ -661,7 +586,7 @@ def interpret():
     for _ in range(max_steps):
         try:
             pc, state = dyn.step(bc, state, mon)
-        except (NotImplementedError, TypeError, IndexError) as e:
+        except (NotImplementedError, jpamb.confidentiality.UnsupportedInstruction) as e:
             print(f"Interpreter stopped: {e}", file=sys.stderr)
             return
         last = jpamb.emit_step(last, pc, state)
@@ -677,20 +602,25 @@ def analyse():
     suite, eff = jpamb.setup()
     bc = jpamb.Bytecode(suite, eff, {})
     policy = suite.security_policy(methodid.classname, eff=eff)
-    assert policy is not None, "hybrid confidentiality analyzer runs on security cases (@Lattice)"
+    assert policy is not None, (
+        "hybrid confidentiality analyzer runs on security cases (@Lattice)"
+    )
 
     report = analyze_hybrid(suite, bc, policy, methodid)
 
     lattice = rules.SetLattice.from_policy(policy)
     print(
         "syntactic labels: "
-        + ", ".join(f"{x}={lattice.show(lbl)}" for x, lbl in report.syntactic.env.items()),
+        + ", ".join(
+            f"{x}={lattice.show(lbl)}" for x, lbl in report.syntactic.env.items()
+        ),
         file=sys.stderr,
     )
     for leak in report.syntactic.leaks:
         print(f"syntactic {leak}", file=sys.stderr)
     print(
         f"dynamic: {report.runs} runs, outcomes {report.dynamic_outcomes}, "
+        f"statuses {report.execution_statuses}, "
         f"coverage {report.covered_instructions}/{report.total_instructions}",
         file=sys.stderr,
     )

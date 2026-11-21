@@ -1,23 +1,7 @@
-"""Dynamic information-flow monitor (shadow labels) for the concrete interpreter.
+"""Concrete confidentiality tracking using the static engine's boundary policies.
 
-Every concrete value the interpreter puts in a local variable or on the operand
-stack gets a *shadow value* `(data, control)` from the class's confidentiality
-lattice L_C. The labels move with the values, one small step at a time, following
-the rules in `cases/jpamb/utils/Sec.java`:
-
-    push c                  data := bot,           control := pc
-    load i                  data := data(local i), control := control(local i) ⊔ pc
-    store i                 local i := (data, control ⊔ pc)          (strong update)
-    iinc i                  local i := (data(local i), control(local i) ⊔ pc)
-    a op b, -a, (cast) a    data := data(a) ⊔ data(b), control := ctrl(a) ⊔ ctrl(b) ⊔ pc
-    if / ifz on c           push (ipdom(i), pc ⊔ full(c)) on the pc stack
-    reaching ipdom(i)       pop that entry again                     (implicit flows end)
-    sink(v1..vk)            leak iff full(vj) ⊔ pc ⋢ clearance_j  -> "assertion error"
-    return v  (@Sec method) leak iff full(v)  ⊔ pc ⋢ return clearance
-
-Tracking `data` (explicit provenance) and `control` (implicit provenance from
-branches) separately lets the monitor classify every detected violation as
-`"explicit"`, `"implicit"`, or `"mixed"` in `fuzz_contract.Violation`.
+Only the conf lattice is checked. Policy initialization and control scopes are
+shared with jpamb.confidentiality; execution follows one concrete path.
 """
 
 from __future__ import annotations
@@ -25,78 +9,53 @@ from __future__ import annotations
 import dataclasses
 
 import fuzz_contract
+
 import jpamb
-import jpamb.confidentiality
 import jpamb.security
 import jvm
 import jvm.state as jvmc
+from jpamb import confidentiality
 
-_IPDOM_CACHE: dict[jvm.AbsMethodID, list[int]] = {}
-
-
-def immediate_postdominators(
-    opcodes: list[jvm.Opcode], methodid: jvm.AbsMethodID | None = None
-) -> list[int]:
-    """ipdom[i]: the first instruction every path leaving i must pass through.
-
-    The value len(opcodes) is the virtual EXIT node: when the two arms of a
-    branch end in different returns, the branch context lasts until the method
-    exits (so `if (s > 0) return 1; return 0;` leaks at both returns).
-    """
-    if methodid is not None and methodid in _IPDOM_CACHE:
-        return _IPDOM_CACHE[methodid]
-    n = len(opcodes)
-    pdom = jpamb.confidentiality.postdominators(
-        jpamb.confidentiality.control_flow(opcodes)
-    )
-    ipdom = []
-    for i in range(n):
-        strict = pdom[i] - {i}
-        ipdom.append(next((d for d in strict if pdom[d] == strict), n))
-    if methodid is not None:
-        _IPDOM_CACHE[methodid] = ipdom
-    return ipdom
+ShadowValue = confidentiality.Value
+PreparedMethods = dict[tuple, confidentiality.AbstractInterpreter]
 
 
-@dataclasses.dataclass(frozen=True)
-class ShadowValue:
-    """Explicit data provenance (`data`) and implicit branch provenance (`control`)."""
-
-    data: jpamb.security.SecurityLabel
-    control: jpamb.security.SecurityLabel
+class ShadowStateError(RuntimeError):
+    """The interpreter and shadow state disagree: an implementation error."""
 
 
 @dataclasses.dataclass
 class ShadowFrame:
-    """The shadow of one JVM frame: a ShadowValue per local and per stack slot."""
-
-    method: jvm.AbsMethodID
-    ipdom: list[int]
-    base_pc: jpamb.security.SecurityLabel
+    model: confidentiality.AbstractInterpreter
+    base_pc: str
     locals: dict[int, ShadowValue] = dataclasses.field(default_factory=dict)
     stack: list[ShadowValue] = dataclasses.field(default_factory=list)
-    pc_stack: list[tuple[int, jpamb.security.SecurityLabel]] = dataclasses.field(
-        default_factory=list
-    )
+    contexts: dict[int, str] = dataclasses.field(default_factory=dict)
 
 
 class NoMonitor:
-    """Used for classes without @Lattice: every hook does nothing."""
+    """Ordinary cases retain their concrete execution without security checks."""
 
     active = False
-    last_violation: str | None = None
-    violations: list[fuzz_contract.Violation] = []
+
+    def __init__(self):
+        self.last_violation: str | None = None
+        self.violations: list[fuzz_contract.Violation] = []
 
     def at(self, pc: jvmc.PC): ...
     def push(self, n: int = 1): ...
     def load(self, index: int): ...
-    def store(self, index: int): ...
-    def incr(self, index: int): ...
-    def dup(self): ...
+    def dup(self, words: int = 1): ...
     def pop(self, n: int = 1): ...
     def swap(self): ...
     def op(self, consumed: int, produced: int = 1): ...
     def branch(self, offset: int, consumed: int): ...
+
+    def store(self, index: int) -> bool:
+        return False
+
+    def incr(self, index: int) -> bool:
+        return False
 
     def invoke(self, callee: jvm.AbsMethodID, nargs: int, enters: bool) -> bool:
         return False
@@ -106,7 +65,7 @@ class NoMonitor:
 
 
 class SecurityMonitor(NoMonitor):
-    """Shadow state for a class that declares @Lattice."""
+    """Fresh shadow state; prepared policy/CFG models belong to one runner."""
 
     active = True
 
@@ -115,139 +74,181 @@ class SecurityMonitor(NoMonitor):
         bc: jpamb.Bytecode,
         policy: jpamb.security.ClassSecurityPolicy,
         methodid: jvm.AbsMethodID,
+        config: confidentiality.Config | None = None,
+        *,
+        prepared: PreparedMethods | None = None,
     ):
+        super().__init__()
         self.bc = bc
         self.policy = policy
-        self.lattice: jpamb.security.ProductLattice = policy.product_lattice
-        self.bot: jpamb.security.SecurityLabel = self.lattice.bot
-        self.case: jpamb.security.MethodSecurityPolicy = policy.method(methodid)
-        self.frames: list[ShadowFrame] = []
-        self.current_location: jvmc.PC = jvmc.PC(methodid, 0)
-        self.last_violation: str | None = None
-        self.violations: list[fuzz_contract.Violation] = []
+        self.config = config if config is not None else confidentiality.Config()
+        if not isinstance(self.config, confidentiality.Config):
+            raise TypeError("security_config must be a jpamb.confidentiality.Config")
+        self.prepared = prepared if prepared is not None else {}
+        self.current_location = jvmc.PC(methodid, 0)
+        model = self._prepare(methodid, self.config)
+        self.lattice = model.lattice
+        self.bot = self.lattice.bot
+        self.frames = [self._new_frame(model, self.bot)]
 
-        root = self._new_frame(methodid, self.bot)
-        for slot, label in zip(self.case.param_slots, self.case.param_labels):
-            root.locals[slot] = ShadowValue(data=label, control=self.bot)
-        self.frames.append(root)
+    def _prepare(self, methodid, config):
+        method = self.bc.getmethod(methodid)
+        key = (
+            methodid,
+            id(method),
+            config.return_clearance,
+            tuple(sorted(config.local_clearances.items())),
+        )
+        if key not in self.prepared:
+            # Initialize the shared policy/CFG, but never run its static worklist.
+            self.prepared[key] = confidentiality.AbstractInterpreter.initial(
+                self.bc, methodid, self.policy, config
+            )
+        return self.prepared[key]
 
-    # -- helpers ---------------------------------------------------------------
-
-    def _new_frame(
-        self, methodid: jvm.AbsMethodID, base_pc: jpamb.security.SecurityLabel
-    ):
-        opcodes = self.bc.getmethod(methodid).opcodes
+    @staticmethod
+    def _new_frame(model, base_pc):
+        initial = model.states[jvmc.PC(model.method.id, 0)]
         return ShadowFrame(
-            methodid, immediate_postdominators(opcodes, methodid), base_pc
+            model,
+            base_pc,
+            locals={
+                i: value for i, value in enumerate(initial.locals) if value is not None
+            },
         )
 
     @property
     def frame(self) -> ShadowFrame:
         return self.frames[-1]
 
-    def join(
-        self, *labels: jpamb.security.SecurityLabel
-    ) -> jpamb.security.SecurityLabel:
-        result = self.bot
-        for label in labels:
-            result = self.lattice.join(result, label)
-        return result
+    def join(self, *labels: str) -> str:
+        return self.lattice.join_all(labels)
 
-    def full(self, sv: ShadowValue) -> jpamb.security.SecurityLabel:
-        return self.join(sv.data, sv.control)
-
-    def pc(self) -> jpamb.security.SecurityLabel:
-        """τ_pc: the security context of the current instruction."""
-        f = self.frame
-        return self.join(f.base_pc, f.pc_stack[-1][1]) if f.pc_stack else f.base_pc
-
-    def _bot_value(self) -> ShadowValue:
-        return ShadowValue(self.bot, self.bot)
+    def pc(self) -> str:
+        return self.join(self.frame.base_pc, *self.frame.contexts.values())
 
     def _pop(self) -> ShadowValue:
-        return (
-            self.frame.stack.pop()
-            if self.frame.stack
-            else ShadowValue(self.bot, self.pc())
-        )
+        if not self.frame.stack:
+            raise ShadowStateError(f"shadow stack underflow at {self.current_location}")
+        return self.frame.stack.pop()
 
-    def _classify(
-        self,
-        sv: ShadowValue,
-        ctx: jpamb.security.SecurityLabel,
-        clearance: jpamb.security.SecurityLabel,
-    ) -> fuzz_contract.ViolationKind:
-        data_bad = not self.lattice.le(sv.data, clearance)
-        ctrl_bad = not self.lattice.le(self.join(sv.control, ctx), clearance)
-        if data_bad and ctrl_bad:
-            return "mixed"
-        if data_bad:
-            return "explicit"
-        if ctrl_bad:
-            return "implicit"
-        return "explicit"
+    def _local(self, index: int) -> ShadowValue:
+        if index not in self.frame.locals:
+            raise confidentiality.UnsupportedInstruction(
+                f"local {index} is not initialized at {self.current_location}"
+            )
+        return self.frame.locals[index]
 
-    def _certify(
-        self,
-        sv: ShadowValue,
-        clearance: jpamb.security.SecurityLabel,
-        where: str,
-    ) -> bool:
-        """full(v) ⊔ pc ⊑ clearance? Records a structured Violation if not."""
+    def _certify(self, sv: ShadowValue, clearance: str, where: str) -> bool:
         ctx = self.pc()
-        effective = self.join(sv.data, sv.control, ctx)
+        effective = self.join(sv.label(self.lattice), ctx)
         if self.lattice.le(effective, clearance):
             return True
-        kind = self._classify(sv, ctx, clearance)
+        data_bad = not self.lattice.le(sv.data, clearance)
+        control_bad = not self.lattice.le(self.join(sv.control, ctx), clearance)
+        kind = (
+            "mixed"
+            if data_bad and control_bad
+            else "explicit"
+            if data_bad
+            else "implicit"
+        )
         self.violations.append(
             fuzz_contract.Violation(
-                pc=self.current_location,
-                target=where,
-                effective=str(effective),
-                allowed=str(clearance),
-                context=str(ctx),
-                kind=kind,
+                self.current_location, where, effective, clearance, ctx, kind
             )
         )
         self.last_violation = (
-            f"SECURITY VIOLATION ({kind}) at {where}: "
+            f"CONFIDENTIALITY VIOLATION ({kind}) at {where}: "
             f"{effective} cannot flow to {clearance}"
         )
         return False
 
-    # -- hooks, called by the interpreter before it executes an instruction -----
-
     def at(self, pc: jvmc.PC):
-        """Record current PC and pop every branch context whose merge point is here."""
         self.current_location = pc
         f = self.frame
-        while f.pc_stack and f.pc_stack[-1][0] == pc.offset:
-            f.pc_stack.pop()
+        if pc.method != f.model.method.id:
+            raise ShadowStateError("concrete and shadow frames disagree")
+        op = f.model.method.opcodes[pc.offset]
+        # Heap/reference effects have no shadow model. Ordinary cases can still
+        # use the wider concrete interpreter through NoMonitor.
+        match op:
+            case (
+                jvm.Push(type=t)
+                | jvm.Load(type=t)
+                | jvm.Store(type=t)
+                | jvm.Binary(type=t)
+                | jvm.Negate(type=t)
+            ):
+                confidentiality.require_int(t)
+            case jvm.Cast(from_=source, to_=target):
+                confidentiality.require_int(source)
+                confidentiality.require_int(target)
+            case jvm.Return(type=t) if t is not None:
+                confidentiality.require_int(t)
+            case jvm.Dup(words=n) | jvm.Pop(words=n) if n not in (1, 2):
+                raise confidentiality.UnsupportedInstruction(
+                    f"unsupported stack width {n}"
+                )
+            case jvm.New(classname=jvm.ClassName("java.lang.AssertionError")):
+                pass  # Ordinary assertions are outcomes, not policy diagnostics.
+            case jvm.Get(static=True, field=field) if (
+                field.extension.name == "$assertionsDisabled"
+            ):
+                pass
+            case (
+                jvm.If()
+                | jvm.Ifz()
+                | jvm.Goto()
+                | jvm.Incr()
+                | jvm.Dup()
+                | jvm.Pop()
+                | jvm.Swap()
+                | jvm.InvokeStatic()
+                | jvm.Return()
+            ):
+                pass
+            case _:
+                raise confidentiality.UnsupportedInstruction(
+                    f"unsupported security effect: {op}"
+                )
+
+        leaving = [
+            branch
+            for branch in f.contexts
+            if branch != pc.offset and pc.offset in f.model.postdom[branch]
+        ]
+        context = self.join(*(f.contexts.pop(branch) for branch in leaving))
+        f.stack = [value.under(context, self.lattice) for value in f.stack]
 
     def push(self, n: int = 1):
-        """Constants (push, getstatic): data is bot, control is pc."""
-        for _ in range(n):
-            self.frame.stack.append(ShadowValue(self.bot, self.pc()))
+        self.frame.stack.extend(ShadowValue(self.bot, self.pc()) for _ in range(n))
 
     def load(self, index: int):
-        sv = self.frame.locals.get(index, self._bot_value())
-        self.frame.stack.append(ShadowValue(sv.data, self.join(sv.control, self.pc())))
+        self.frame.stack.append(self._local(index).under(self.pc(), self.lattice))
 
-    def store(self, index: int):
-        sv = self._pop()
-        self.frame.locals[index] = ShadowValue(
-            sv.data, self.join(sv.control, self.pc())
-        )
+    def _assign(self, index: int, value: ShadowValue) -> bool:
+        if not 0 <= index < self.frame.model.method.max_locals:
+            raise confidentiality.UnsupportedInstruction(f"invalid local slot {index}")
+        value = value.under(self.pc(), self.lattice)
+        fixed = self.frame.model.local_clearances.get(index)
+        if fixed is not None:
+            if not self._certify(value, fixed, f"local {index}"):
+                return True
+            self.frame.locals[index] = ShadowValue(fixed, self.bot)
+        else:
+            self.frame.locals[index] = value
+        return False
 
-    def incr(self, index: int):
-        sv = self.frame.locals.get(index, self._bot_value())
-        self.frame.locals[index] = ShadowValue(
-            sv.data, self.join(sv.control, self.pc())
-        )
+    def store(self, index: int) -> bool:
+        return self._assign(index, self._pop())
 
-    def dup(self):
-        sv = self._pop()
-        self.frame.stack += [sv, sv]
+    def incr(self, index: int) -> bool:
+        return self._assign(index, self._local(index))
+
+    def dup(self, words: int = 1):
+        values = [self._pop() for _ in range(words)][::-1]
+        self.frame.stack.extend(values + values)
 
     def pop(self, n: int = 1):
         for _ in range(n):
@@ -255,60 +256,82 @@ class SecurityMonitor(NoMonitor):
 
     def swap(self):
         b, a = self._pop(), self._pop()
-        self.frame.stack += [b, a]
+        self.frame.stack.extend((b, a))
 
     def op(self, consumed: int, produced: int = 1):
-        """Any operation: joins operand data labels and joins operand control + pc."""
         operands = [self._pop() for _ in range(consumed)]
-        data = self.join(*(o.data for o in operands))
-        ctrl = self.join(*(o.control for o in operands), self.pc())
-        self.frame.stack += [ShadowValue(data, ctrl)] * produced
+        value = ShadowValue(
+            self.join(*(o.data for o in operands)),
+            self.join(*(o.control for o in operands), self.pc()),
+        )
+        self.frame.stack.extend([value] * produced)
 
     def branch(self, offset: int, consumed: int):
-        """if/ifz: raise pc with the condition's full label until ipdom(offset)."""
         operands = [self._pop() for _ in range(consumed)]
-        cond = self.join(*(self.full(o) for o in operands))
-        f = self.frame
-        f.pc_stack.append((f.ipdom[offset], self.join(self.pc(), cond)))
+        condition = self.join(*(o.label(self.lattice) for o in operands))
+        # One entry per branch bounds context storage across loop iterations.
+        self.frame.contexts[offset] = self.join(self.pc(), condition)
 
     def invoke(self, callee: jvm.AbsMethodID, nargs: int, enters: bool) -> bool:
-        """A call. Returns True if it is a leak (a sink that may not receive an argument)."""
-        args = [self._pop() for _ in range(nargs)][::-1]
         sink = self.policy.sink(callee)
-        if sink is not None:
-            for j, (sv, clearance) in enumerate(zip(args, sink.param_labels)):
-                if not self._certify(sv, clearance, f"{sink.name} argument {j}"):
-                    return True
-        if enters:
-            callee_frame = self._new_frame(callee, self.pc())
-            for i, sv in enumerate(args):
-                callee_frame.locals[i] = ShadowValue(
-                    sv.data, self.join(sv.control, self.pc())
-                )
-            self.frames.append(callee_frame)
-        else:
-            data = self.join(*(a.data for a in args))
-            ctrl = self.join(*(a.control for a in args), self.pc())
-            self.frame.stack.append(ShadowValue(data, ctrl))
+        if (
+            not enters
+            or sink is None
+            or not sink.is_static
+            or sink.unsupported_features
+        ):
+            raise confidentiality.UnsupportedInstruction(
+                f"call without supported sink: {callee}"
+            )
+        if callee.extension.return_type is not None:
+            raise confidentiality.UnsupportedInstruction(f"non-void sink: {callee}")
+        for parameter in callee.extension.params:
+            confidentiality.require_int(parameter)
+        try:
+            body = self.bc.getmethod(callee).opcodes
+        except (OSError, KeyError, ValueError, NotImplementedError) as exc:
+            raise confidentiality.UnsupportedInstruction(
+                f"cannot inspect sink body: {callee}: {exc}"
+            ) from exc
+        if (
+            len(body) != 1
+            or not isinstance(body[0], jvm.Return)
+            or body[0].type is not None
+        ):
+            raise confidentiality.UnsupportedInstruction(
+                f"sink body has unsummarized effects: {callee}"
+            )
+        args = [self._pop() for _ in range(nargs)][::-1]
+        for index, (value, clearance) in enumerate(zip(args, sink.param_labels)):
+            if not self._certify(
+                value, clearance["conf"], f"{sink.name} argument {index}"
+            ):
+                return True
+        self.frames.append(
+            self._new_frame(self._prepare(callee, confidentiality.Config()), self.pc())
+        )
         return False
 
     def ret(self, has_value: bool) -> bool:
-        """A return. Returns True if the root method leaks through its return value."""
-        sv = self._pop() if has_value else None
-        if sv is not None:
-            sv = ShadowValue(sv.data, self.join(sv.control, self.pc()))
-        if len(self.frames) == 1:
-            clearance = self.case.return_clearance
-            if sv is not None and clearance is not None:
-                method_name = self.frame.method.extension.name
-                if not self._certify(sv, clearance, f"{method_name}:return"):
-                    self.frames.pop()
-                    return True
-        self.frames.pop()
-        if self.frames and sv is not None:
-            self.frame.stack.append(
-                ShadowValue(sv.data, self.join(sv.control, self.pc()))
+        if has_value != (self.frame.model.method.id.extension.return_type is not None):
+            raise confidentiality.UnsupportedInstruction(
+                "return does not match method type"
             )
+        if has_value:
+            value = self._pop()
+            if self.frame.stack:
+                raise confidentiality.UnsupportedInstruction("extra operands at return")
+            if not self._certify(
+                value,
+                self.frame.model.return_clearance,
+                f"{self.frame.model.method.id.extension.name}:return",
+            ):
+                return True
+        elif self.frame.stack:
+            raise confidentiality.UnsupportedInstruction(
+                "nonempty stack at void return"
+            )
+        self.frames.pop()
         return False
 
 
@@ -316,8 +339,10 @@ def make_monitor(
     bc: jpamb.Bytecode,
     policy: jpamb.security.ClassSecurityPolicy | None,
     methodid: jvm.AbsMethodID,
+    config: confidentiality.Config | None = None,
+    *,
+    prepared: PreparedMethods | None = None,
 ) -> NoMonitor:
-    """A fresh SecurityMonitor for a security case, NoMonitor for an ordinary case."""
     if policy is None:
         return NoMonitor()
-    return SecurityMonitor(bc, policy, methodid)
+    return SecurityMonitor(bc, policy, methodid, config, prepared=prepared)

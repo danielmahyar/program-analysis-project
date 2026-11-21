@@ -12,6 +12,26 @@ A hybrid confidentiality analyzer for the JPAMB security benchmark (`@Lattice` a
 
 ## Layout
 
+The concrete stage uses `dynamic.make_runner` and the shared confidentiality
+monitor, including fixed destinations, `jpamb.confidentiality.Config`, return
+defaults, control-dependency handling, and incomplete-execution statuses. Optional
+untaken-branch tainting remains a separate hypothetical analysis: its findings
+are stored separately from concrete witnesses.
+
+Prediction names such as `confirmed-safe` and `syntactic-false-positive` are
+JPAMB calibration categories, not proofs derived from instruction coverage.
+General calls and recursion in the new AdvancedLeaks cases are outside the
+shared concrete confidentiality subset and return `unsupported`. They need
+separate interprocedural support before claiming full concrete benchmark coverage.
+
+Run the artifact-independent integration checks from the repository root with:
+
+```bash
+python -m pytest solutions/hybrid/tests/test_hybrid_runner_compatibility.py -q
+```
+
+The original `test_hybrid.py` additionally requires generated JPAMB bytecode.
+
 ```text
 solutions/hybrid/
 ├── pyproject.toml

@@ -2,9 +2,15 @@
 
 Implementation plan based on the current Python confidentiality analysis. The
 independent first milestone is implemented in `solutions/dynamic/src/fuzz_contract.py`,
-`fuzz_inputs.py`, and `coverage_fuzz.py`, with controlled-runner tests. A real runner
-adapter, persistent reports, CLI integration, and benchmark evaluation remain
-future work. The teammate's dynamic implementation remains the execution engine.
+`fuzz_inputs.py`, and `coverage_fuzz.py`, with controlled-runner tests. Commit
+`4769a8e` adds a concrete interpreter, Python shadow monitor, `dynamic.make_runner`,
+and CLI calls to the fuzzer. The 2026-11-21 implementation aligns the runner with
+the Python confidentiality rules and adds real-runner integration regressions,
+including configuration, fixed writes, return defaults, control dependencies,
+and a replayable fuzzing campaign. See the
+[integration review and follow-up](dynamic-integration-review.md) for the original
+discrepancies and their resolution. Compiled JPAMB benchmark validation,
+persistent reports, and CLI replay remain future work.
 
 ## Purpose and scope
 
@@ -247,7 +253,7 @@ Proposed modules under `solutions/dynamic/src/`:
 | `fuzz_contract.py` | Small result/diagnostic types and runner interface |
 | `fuzz_inputs.py` | Typed seeds, dictionary extraction, mutation |
 | `coverage_fuzz.py` | Corpus, coverage feedback, campaigns, findings, replay |
-| `fuzz_runner.py` | Adapter to the teammate's concrete confidentiality engine |
+| `dynamic.make_runner` | Concrete confidentiality adapter with shared policy initialization and tested integration |
 
 Keep the public imports usable under the existing dynamic project's packaging.
 Add dedicated fuzzing commands in `solutions/dynamic/pyproject.toml` without
@@ -258,9 +264,10 @@ Delivery order:
 
 1. Agree on the security and runner contracts. Implement the independent result
    types, typed inputs, corpus, campaign logic, and controlled-runner tests.
-2. Connect the teammate's interpreter through the adapter. Check the examples
-   above before measuring search performance. Share fixed-local/return-default
-   settings with the static analysis.
+2. Completed for bytecode fixtures: align `dynamic.make_runner` and the Python
+   monitor with the confidentiality rules, share fixed-local/return-default
+   settings, and add real-runner/fuzzer regression tests. Validate the generated
+   Java examples through JPAMB before measuring search performance.
 3. Add replay, the detailed report, and JPAMB prediction integration.
 4. Run the baseline comparisons and document benefits and limits. Add optional
    minimization or richer feedback only after the comparison works.

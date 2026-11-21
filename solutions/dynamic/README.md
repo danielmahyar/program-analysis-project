@@ -1,9 +1,10 @@
 # Dynamic analysis and independent fuzzing core
 
-The existing `dynamic-interpreter` and `dynamic-analysis` commands remain the
-concrete interpreter's entry points. The new modules support coverage-guided
-input exploration with an injected runner. They do not implement a concrete JVM
-or decide whether a confidentiality flow is permitted.
+The `dynamic-interpreter` and `dynamic-analysis` commands use the concrete
+interpreter in `src/dynamic.py` and shadow labels in `src/security_monitor.py`.
+The independent fuzzing modules support coverage-guided input exploration with
+an injected runner. They consume execution observations without deciding
+whether a confidentiality flow is permitted.
 
 ## Current milestone
 
@@ -15,18 +16,29 @@ or decide whether a confidentiality flow is permitted.
   execution/instruction/time budgets, and deduplicated findings.
 - `tests/test_coverage_fuzz.py`: controlled-runner tests, including discovery
   through an intermediate input, partial executions, and reproducibility.
+- `tests/test_dynamic_confidentiality.py`: real-interpreter regressions for
+  confidentiality policies, control dependencies, and fuzzer integration.
 
-There is no real-runner adapter or new analysis command yet. Findings are Python
-objects containing replayable inputs and diagnostics. Persistent JSON reports,
-CLI replay, JPAMB prediction output, and benchmark comparisons are later steps.
+`dynamic.make_runner(bc, policy)` now provides a concrete adapter, and the existing
+`dynamic-analysis` command calls the fuzzer for int/boolean inputs. The monitor
+uses only the confidentiality dimension and shares boundary-policy initialization
+with `jpamb.confidentiality`: fixed parameter/local writes are certified, inferred
+locals use strong updates, and returns use the declared or configured clearance.
+Branch dependencies on existing stack values survive control-region merges.
 
-## Using an eventual concrete runner
+Findings are Python objects containing replayable inputs and diagnostics.
+Persistent JSON reports, CLI replay, and controlled benchmark comparisons remain
+later steps. The command prints prediction categories and separate counts for
+completed, unsupported, and step-limit runs. The `timeout` prediction category
+is a heuristic; no infinite execution is recorded as an observed outcome.
+
+## Runner interface
 
 ```python
 from coverage_fuzz import FuzzConfig, fuzz
 from fuzz_inputs import InputSpace
 
-# `method` is an already decoded jvm.Method. `run_once` is your adapter.
+# `method` is an already decoded jvm.Method. `run_once` follows the contract below.
 campaign = fuzz(
     method.id,
     InputSpace.from_method(method),
@@ -39,7 +51,7 @@ for finding in campaign.findings:
     print(finding.inputs.encode(), finding.violation)
 ```
 
-The adapter must implement:
+The concrete adapter exposes this interface:
 
 ```python
 def run_once(method_id, inputs, *, step_limit, security_config):
@@ -48,11 +60,23 @@ def run_once(method_id, inputs, *, step_limit, security_config):
     ...
 ```
 
-The security settings object is passed through unchanged. It can be the existing
-Python confidentiality `Config` or the teammate's own settings type. Capture
-prepared bytecode, the method's confidentiality policy, and control-flow metadata
-in the adapter so they need not be rebuilt on each execution. Policy availability,
-supported effects, and fresh concrete/shadow state must be checked by that runner.
+For the concrete adapter, `security_config` is `None` or a
+`jpamb.confidentiality.Config`. Its fixed local clearances and return default are
+honoured; explicit annotations take precedence, and local constraints cannot
+relax a parameter's declared clearance. `JPAMB_CONF_RETURN_CLEARANCE` configures
+the CLI's unannotated return default, which otherwise is lattice bottom.
+
+The runner caches initialized policy/CFG models per method body and settings,
+within that runner only. It does not execute a static worklist. Every execution
+gets fresh concrete locals, shadow locals/stacks, and branch contexts. The
+configuration's `max_steps` is the static worklist limit; concrete budgets use
+the runner's `step_limit` and `FuzzConfig.max_steps` instead.
+
+The shared confidentiality subset is primitive int/boolean values and
+intraprocedural branches/loops with verified empty static void sinks. Heap effects,
+references, general calls, and unsupported method metadata produce `unsupported`
+when encountered or validated. Ordinary classes without a security policy retain
+the wider concrete interpreter, including its numeric runtime outcomes.
 
 Use only the `conf` lattice dimension. Check fixed destinations using
 `join(value_label, context) <= clearance`. Inferred local labels may change;
@@ -91,5 +115,6 @@ python -m pytest solutions/dynamic/tests -q
 
 Root pytest configuration adds both source directories to the import path. These
 tests need no Java, Docker, compiled cases, or generated decompiler output. They
-test exploration and the adapter contract; real confidentiality integration must
-be verified once a concrete runner is connected.
+exercise the exploration core and real concrete interpreter using decoded
+bytecode fixtures, including finding replay. Running the actual compiled Java
+benchmark through JPAMB additionally requires the generated class/decompiler files.

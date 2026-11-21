@@ -20,11 +20,13 @@ from collections.abc import Iterator
 import coverage_fuzz
 import fuzz_contract
 import fuzz_inputs
+import security_monitor
+
 import jpamb
 import jpamb.security
 import jvm
 import jvm.state as jvmc
-import security_monitor
+from jpamb import confidentiality
 
 NAME = "dynamic"
 VERSION = "2.0"
@@ -168,20 +170,22 @@ def step(
             frame.pc += 1
 
         case jvm.Store(index=i):
-            mon.store(i)
+            if mon.store(i):
+                return pc, "assertion error"
             frame.locals[i] = frame.stack.pop()
             frame.pc += 1
 
         case jvm.Incr(index=i, amount=a):
-            mon.incr(i)
+            if mon.incr(i):
+                return pc, "assertion error"
             frame.locals[i] = jvmc.StackInt(i32(as_int(frame.locals[i]) + a))
             frame.pc += 1
 
-        case jvm.Dup(words=1):
-            mon.dup()
-            v = frame.stack.pop()
-            frame.stack.push(v)
-            frame.stack.push(v)
+        case jvm.Dup(words=n) if n in (1, 2):
+            mon.dup(n)
+            values = [frame.stack.pop() for _ in range(n)][::-1]
+            for value in values + values:
+                frame.stack.push(value)
             frame.pc += 1
 
         case jvm.Pop(words=n):
@@ -354,10 +358,15 @@ def initial(bc: jpamb.Bytecode, methodid: jvm.AbsMethodID, input: jpamb.case.Inp
 
 
 def make_runner(
-    bc: jpamb.Bytecode, policy: jpamb.security.ClassSecurityPolicy | None
+    bc: jpamb.Bytecode,
+    policy: jpamb.security.ClassSecurityPolicy | None,
+    *,
+    monitor_factory=security_monitor.make_monitor,
 ):
     """Build a `fuzz_contract.Runner` callable that executes `method_id` on `inputs`
     using the concrete JVM interpreter and `security_monitor.SecurityMonitor`."""
+
+    prepared: security_monitor.PreparedMethods = {}
 
     def run_once(
         method_id: jvm.AbsMethodID,
@@ -366,12 +375,22 @@ def make_runner(
         step_limit: int,
         security_config: object | None = None,
     ) -> fuzz_contract.RunResult:
-        if step_limit < 0:
+        if type(step_limit) is not int or step_limit < 0:
             raise ValueError("step_limit must be non-negative")
+        if security_config is not None and not isinstance(
+            security_config, confidentiality.Config
+        ):
+            raise TypeError("security_config must be a jpamb.confidentiality.Config")
         try:
+            mon = monitor_factory(
+                bc, policy, method_id, security_config, prepared=prepared
+            )
+            if policy is not None:
+                fuzz_inputs.InputSpace(tuple(method_id.extension.params)).validate(
+                    inputs
+                )
             state = initial(bc, method_id, inputs)
-            mon = security_monitor.make_monitor(bc, policy, method_id)
-        except (NotImplementedError, TypeError, IndexError) as exc:
+        except (NotImplementedError, confidentiality.UnsupportedInstruction) as exc:
             return fuzz_contract.RunResult(
                 "unsupported", frozenset(), 0, detail=str(exc)
             )
@@ -382,7 +401,7 @@ def make_runner(
             current_pc = state.frames.peek().pc
             try:
                 pc, nxt = step(bc, state, mon)
-            except (NotImplementedError, TypeError, IndexError) as exc:
+            except (NotImplementedError, confidentiality.UnsupportedInstruction) as exc:
                 return fuzz_contract.RunResult(
                     "unsupported",
                     frozenset(coverage),
@@ -493,7 +512,9 @@ def fallback_complex_inputs(
     char_word = "".join(chr(c) for c in ints if 32 < c < 127)
     str_pool = list(dict.fromkeys(strings + ["", "a", char_word]))
     int_pool = list(
-        dict.fromkeys([0, 1, -1, 2, 3, 6, 11] + [fuzz_inputs.signed_int(c) for c in ints])
+        dict.fromkeys(
+            [0, 1, -1, 2, 3, 6, 11] + [fuzz_inputs.signed_int(c) for c in ints]
+        )
     )
     columns: list[list[jpamb.case.Value]] = []
     for t in methodid.extension.params:
@@ -528,6 +549,12 @@ def fallback_complex_inputs(
 # -----------------------------------------------------------------------------
 
 
+def security_settings() -> confidentiality.Config:
+    return confidentiality.Config(
+        return_clearance=os.environ.get("JPAMB_CONF_RETURN_CLEARANCE")
+    )
+
+
 def interpret():
     """Interpret one case and emit every step (jpamb interpret)."""
     methodid, input, max_steps = jpamb.getcase(
@@ -538,13 +565,13 @@ def interpret():
     policy = suite.security_policy(methodid.classname, eff=eff)
 
     state = initial(bc, methodid, input)
-    mon = security_monitor.make_monitor(bc, policy, methodid)
+    mon = security_monitor.make_monitor(bc, policy, methodid, security_settings())
     last = jpamb.emit_init(state)
 
     for _ in range(max_steps):
         try:
             pc, state = step(bc, state, mon)
-        except (NotImplementedError, TypeError, IndexError) as e:
+        except (NotImplementedError, confidentiality.UnsupportedInstruction) as e:
             print(f"Interpreter stopped: {e}", file=sys.stderr)
             return
         last = jpamb.emit_step(last, pc, state)
@@ -568,6 +595,8 @@ def analyse():
 
     base_runner = make_runner(bc, policy)
     outcomes: dict[str, int] = {}
+    statuses: dict[str, int] = {}
+    settings = security_settings()
     witnesses: dict[str, tuple[jpamb.case.Input, str | None]] = {}
     covered_offsets: set[int] = set()
     runs = 0
@@ -577,10 +606,10 @@ def analyse():
     ) -> fuzz_contract.RunResult:
         nonlocal runs
         runs += 1
-        budget = max_steps if runs <= 25 else min(step_limit, 500)
         res = base_runner(
-            mid, inputs, step_limit=budget, security_config=security_config
+            mid, inputs, step_limit=step_limit, security_config=security_config
         )
+        statuses[res.status] = statuses.get(res.status, 0) + 1
         for pc in res.coverage:
             if pc.method == methodid:
                 covered_offsets.add(pc.offset)
@@ -588,8 +617,6 @@ def analyse():
             outcomes[res.outcome] = outcomes.get(res.outcome, 0) + 1
             if res.outcome not in witnesses:
                 witnesses[res.outcome] = (inputs, res.detail)
-        elif res.status == "step-limit":
-            outcomes["*"] = outcomes.get("*", 0) + 1
         return res
 
     # Use coverage_fuzz.fuzz + InputSpace for int/boolean methods (all Security cases!),
@@ -613,6 +640,7 @@ def analyse():
                 seed_limit=max(1, len(seeds)),
             ),
             seeds=seeds,
+            security_config=settings,
         )
         for finding in campaign.findings:
             log(f"finding: {finding.inputs.encode()} -> {finding.violation}")
@@ -621,12 +649,15 @@ def analyse():
         for inp in fallback_complex_inputs(bc, methodid):
             if runs >= max_runs or time.monotonic() > deadline:
                 break
-            tracking_runner(methodid, inp, step_limit=max_steps)
+            tracking_runner(
+                methodid, inp, step_limit=max_steps, security_config=settings
+            )
 
     total = len(method.opcodes)
     full_coverage = len(covered_offsets) == total
     print(
-        f"dynamic: {runs} runs, outcomes {outcomes}, coverage {len(covered_offsets)}/{total}",
+        f"dynamic: {runs} runs, outcomes {outcomes}, statuses {statuses}, "
+        f"coverage {len(covered_offsets)}/{total}",
         file=sys.stderr,
     )
     for outcome, (w_input, violation) in witnesses.items():
@@ -634,14 +665,22 @@ def analyse():
         print(f"  witness {w_input.encode()} -> {outcome}{detail}", file=sys.stderr)
 
     for query in jpamb.QUERIES:
-        print(f"{query};{predict(query, outcomes, runs, full_coverage)}")
+        print(
+            f"{query};{predict(query, outcomes, runs, full_coverage, statuses.get('step-limit', 0))}"
+        )
 
 
-def predict(query: str, outcomes: dict[str, int], runs: int, full_coverage: bool) -> str:
+def predict(
+    query: str,
+    outcomes: dict[str, int],
+    runs: int,
+    full_coverage: bool,
+    limited_runs: int = 0,
+) -> str:
     """Classify each query into a category; JPAMB computes the optimal wager
     from the empirical hit/miss ratio across the benchmark."""
     if query == "*":
-        return "timeout" if outcomes.get("*", 0) == runs and runs > 0 else "not-found"
+        return "timeout" if limited_runs == runs and runs > 0 else "not-found"
     if query in outcomes:
         return "found"
     return "covered-not-found" if full_coverage else "not-found"
