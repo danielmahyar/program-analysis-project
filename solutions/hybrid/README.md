@@ -32,6 +32,12 @@ python -m pytest solutions/hybrid/tests/test_hybrid_runner_compatibility.py -q
 
 The original `test_hybrid.py` additionally requires generated JPAMB bytecode.
 
+Set `JPAMB_FUZZ_REPORT_DIR` to save the primary concrete campaign and, when used,
+the separate hypothetical branch-taint campaign. Both use the shared versioned
+report format and `coverage-fuzz replay`; hypothetical reports retain their
+mode and evidence tag. See the dynamic project's
+[saved report and replay guide](../dynamic/README.md#save-and-replay-campaigns).
+
 ```text
 solutions/hybrid/
 ├── pyproject.toml

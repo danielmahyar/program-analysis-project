@@ -20,6 +20,7 @@ from collections.abc import Iterator
 import coverage_fuzz
 import fuzz_contract
 import fuzz_inputs
+import fuzz_reports
 import security_monitor
 
 import jpamb
@@ -642,6 +643,17 @@ def analyse():
             seeds=seeds,
             security_config=settings,
         )
+        saved = fuzz_reports.maybe_save_campaign(
+            campaign,
+            suite=suite,
+            bytecode=bc,
+            input_space=space,
+            seed_inputs=seeds,
+            producer=NAME,
+            producer_version=VERSION,
+        )
+        if saved is not None:
+            print(f"saved fuzz report: {saved}", file=sys.stderr)
         for finding in campaign.findings:
             log(f"finding: {finding.inputs.encode()} -> {finding.violation}")
     else:

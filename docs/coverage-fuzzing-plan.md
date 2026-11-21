@@ -12,8 +12,9 @@ and a replayable fuzzing campaign. See the
 discrepancies and their resolution. Compiled JPAMB validation now passes for the
 supported subset: 301 selected tests, 115 interpreter cases, and 118 completed
 security executions agreeing with the JVM. Three recursive executions remain
-unsupported. Persistent user-facing reports, CLI replay, and controlled strategy
-comparisons remain future work.
+unsupported. Versioned user-facing campaign reports and CLI replay are now
+implemented in `fuzz_reports.py` and `fuzz_cli.py`, with concrete/hypothetical
+provenance and program snapshots. Controlled strategy comparisons remain future work.
 
 ## Purpose and scope
 
@@ -271,7 +272,8 @@ Delivery order:
    monitor with the confidentiality rules, share fixed-local/return-default
    settings, add real-runner/fuzzer regression tests, and validate the generated
    Java examples through JPAMB. Recursion remains outside the supported subset.
-3. Add replay, the detailed report, and JPAMB prediction integration.
+3. Completed: saved campaign reports, exact-input CLI replay, and opt-in export
+   from existing dynamic/hybrid JPAMB commands. See the dynamic README for usage.
 4. Run the baseline comparisons and document benefits and limits. Add optional
    minimization or richer feedback only after the comparison works.
 
@@ -279,7 +281,8 @@ The current checkout has generated `target/classes` and `target/decompiled`
 artifacts from the Docker compile/decompile build. New checkouts still need that
 build before compiled benchmark tests can run. Validation outputs are in the
 ignored `reports/benchmark-validation-20261121/` directory; they are validation
-artifacts, not the planned general-purpose fuzzing report/replay commands.
+artifacts, separate from the general-purpose `coverage-fuzz run` and
+`coverage-fuzz replay` commands now available.
 
 ## References
 

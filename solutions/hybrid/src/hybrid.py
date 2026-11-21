@@ -37,6 +37,7 @@ import coverage_fuzz
 import dynamic as dyn
 import fuzz_contract
 import fuzz_inputs
+import fuzz_reports
 import security_monitor
 import syntactic_confidentiality as sc
 import tree_sitter
@@ -432,6 +433,17 @@ def analyze_hybrid(
             security_config=settings,
         )
         findings = list(campaign.findings)
+        saved = fuzz_reports.maybe_save_campaign(
+            campaign,
+            suite=suite,
+            bytecode=bc,
+            input_space=space,
+            seed_inputs=seeds,
+            producer=NAME,
+            producer_version=VERSION,
+        )
+        if saved is not None:
+            print(f"saved fuzz report: {saved}", file=sys.stderr)
     else:
         deadline = time.monotonic() + timeout_sec
         for inp in dyn.fallback_complex_inputs(bc, methodid):
@@ -476,6 +488,19 @@ def analyze_hybrid(
             security_config=settings,
         )
         hybrid_pre_taint_findings = list(probe_campaign.findings)
+        saved = fuzz_reports.maybe_save_campaign(
+            probe_campaign,
+            suite=suite,
+            bytecode=bc,
+            input_space=space,
+            seed_inputs=space.seeds(8),
+            mode="hybrid-pretaint",
+            producer=NAME,
+            producer_version=VERSION,
+            generator="typed-mutation-v1/typed-seeds",
+        )
+        if saved is not None:
+            print(f"saved hypothetical fuzz report: {saved}", file=sys.stderr)
 
     predictions = fuse_predictions(
         syntactic=syntactic,

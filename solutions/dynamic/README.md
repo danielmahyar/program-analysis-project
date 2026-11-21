@@ -26,11 +26,81 @@ with `jpamb.confidentiality`: fixed parameter/local writes are certified, inferr
 locals use strong updates, and returns use the declared or configured clearance.
 Branch dependencies on existing stack values survive control-region merges.
 
-Findings are Python objects containing replayable inputs and diagnostics.
-Persistent JSON reports, CLI replay, and controlled benchmark comparisons remain
-later steps. The command prints prediction categories and separate counts for
+Campaigns can be saved as versioned JSON and their findings replayed through the
+`coverage-fuzz` command described below. Controlled benchmark comparisons remain
+the next milestone. The analysis command prints prediction categories and separate counts for
 completed, unsupported, and step-limit runs. The `timeout` prediction category
 is a heuristic; no infinite execution is recorded as an observed outcome.
+
+## Save and replay campaigns
+
+From the repository root, using the project environment and already generated
+bytecode, run:
+
+```powershell
+.\.venv\Scripts\python.exe solutions/dynamic/src/fuzz_cli.py run "jpamb.cases.Hospital.implicitCompartmentLeak:(I)V" --executions 100 --output reports/hospital-fuzz.json
+.\.venv\Scripts\python.exe solutions/dynamic/src/fuzz_cli.py replay reports/hospital-fuzz.json --finding 1
+```
+
+Installing the dynamic project also exposes the same interface as `coverage-fuzz`:
+
+```bash
+uv run --project solutions/dynamic coverage-fuzz run "jpamb.cases.Hospital.implicitCompartmentLeak:(I)V" --output reports/hospital-fuzz.json
+uv run --project solutions/dynamic coverage-fuzz replay reports/hospital-fuzz.json
+```
+
+Replay without `--finding` checks every saved finding. Use `--suite PATH` when
+the report is moved to another checkout. Replay restores the recorded input,
+actual per-execution instruction limit, and confidentiality settings; ambient
+return-clearance environment variables do not override them. It compares the
+location, destination, violation kind, effective label, clearance, and context.
+
+Exit codes are 0 for a successfully saved campaign or matching replay, 1 when a
+replay does not reproduce the recorded violation, and 2 for invalid input/report,
+changed/missing program artifacts, or a report containing no findings to replay.
+A campaign with no findings still saves successfully and is not a security proof.
+
+`run` accepts `--seed`, `--executions`, `--step-limit` (per input), `--max-steps`
+(campaign total), `--timeout`, `--seed-limit`, `--return-clearance LEVEL`, and
+repeatable `--local-clearance SLOT=LEVEL`. Its int/boolean generator uses the
+same bytecode constants and boundary seeds as the dynamic analysis. Deadlines
+are cooperative between executions. No `@Case` input or expected outcome seeds
+the search.
+
+The JSON format is `jpamb-coverage-fuzz`, schema version 1. It records:
+
+- The method, producer/version, checkout revision and dirty flag, and program
+  snapshot digests. Digests cover decompiled bytecode and policies, normalized
+  as canonical JSON so whitespace, object-key order, and line endings do not
+  prevent relocation. Actual artifact changes cause replay to refuse execution.
+- Campaign budgets/random seed and confidentiality settings, the dictionary and
+  configured seed queue, retained corpus, coverage locations, status counts,
+  observed terminating outcomes, stop reason, and elapsed time.
+- Numbered findings with encoded inputs, full diagnostics, discovery execution
+  and cumulative steps, and the instruction allowance actually used for replay.
+
+Reports are atomically written. A saved report reproduces individual findings;
+it does not promise the exact same whole campaign under different runtime code,
+wall-clock performance, or custom mutation functions. Git revision metadata is
+informational; replay verifies program artifacts and the observed violation.
+
+To export reports from existing JPAMB analysis commands, set:
+
+```powershell
+$env:JPAMB_FUZZ_REPORT_DIR = "reports/fuzz"
+```
+
+The dynamic and hybrid analyzers then save uniquely named reports for their
+int/boolean campaigns, including unsuccessful/incomplete searches. Prediction
+stdout remains unchanged; saved file paths go to stderr. Unset the variable to
+disable export. Existing string/array fallback paths are outside this reporting
+scope.
+
+Concrete and hypothetical evidence are tagged separately. Hybrid optional
+untaken-branch reports use mode `hybrid-pretaint` and evidence kind `hypothetical`.
+Replay selects that mode and labels its result accordingly; a matched hypothetical
+finding is not a concrete leak witness. It requires the hybrid/parser dependencies.
+The standalone `run --mode hybrid-pretaint` is also available for explicit probes.
 
 ## Runner interface
 
@@ -114,7 +184,8 @@ python -m pytest solutions/dynamic/tests -q
 ```
 
 Root pytest configuration adds both source directories to the import path. These
-tests need no Java, Docker, compiled cases, or generated decompiler output. They
-exercise the exploration core and real concrete interpreter using decoded
-bytecode fixtures, including finding replay. Running the actual compiled Java
-benchmark through JPAMB additionally requires the generated class/decompiler files.
+fixture tests need no Java or Docker. They exercise the exploration core and
+real concrete interpreter using decoded bytecode fixtures, including saved report
+round-trips and replay. The compiled CLI check skips until generated artifacts
+exist; the optional hybrid report check needs the hybrid/parser dependencies.
+Running the actual Java benchmark through JPAMB requires generated class/decompiler files.

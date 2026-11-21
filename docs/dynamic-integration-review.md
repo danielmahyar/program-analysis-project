@@ -6,6 +6,23 @@ reference; it did not fetch or modify remote branches.
 
 ## Compiled benchmark validation, 2026-11-21
 
+### Saved campaign reports and replay
+
+The next milestone is implemented in `solutions/dynamic/src/fuzz_reports.py`
+and `fuzz_cli.py`, exposed as `coverage-fuzz run` and `coverage-fuzz replay`.
+Schema version 1 saves campaign configuration, seed queue/dictionary, statuses,
+coverage/corpus, and numbered findings. It records normalized bytecode/policy
+digests and checkout provenance. Replay restores each finding's recorded input,
+instruction allowance, and confidentiality settings, and checks the complete
+diagnostic. Changed program artifacts are rejected before execution.
+
+Dynamic/hybrid JPAMB commands can opt into export with `JPAMB_FUZZ_REPORT_DIR`.
+Hypothetical hybrid findings retain a separate mode/evidence kind and are never
+presented as concrete witnesses. Actual compiled Hospital examples were saved
+and replayed successfully in both modes through the installed console command.
+The selected regression suite passed 334 tests, including 33 new report/replay
+checks. The remaining planned milestone is the controlled evaluation harness.
+
 The implementation at `28e47a4` was validated against compiled Java classes,
 after starting Docker Desktop and building with the configured
 `ghcr.io/kalhauge/jvm2json:jdk-latest` image (digest
