@@ -36,9 +36,12 @@ instruction indices to stderr.
 
 ## How it finds a leak
 
-The [project command](src/unbounded_analysis.py) uses the
-[shared abstract interpreter](../../src/jpamb/confidentiality.py), which builds
-a CFG from the method's bytecode. At each conditional, the interpreter
+The [project command](src/unbounded_analysis.py) runs its own
+[abstract interpreter](src/unbounded_confidentiality/interpreter.py).
+JPAMB supplies the bytecode and security policy. The `static-analysis` command
+in `solutions/static` uses the [original interpreter](../../src/jpamb/confidentiality.py).
+
+The project interpreter builds a CFG from the method's bytecode. At each conditional, it
 explores both the taken edge and the fallthrough edge. A return leads to the
 virtual exit. Starting at instruction zero, the interpreter keeps an abstract
 state for each reachable instruction. A state records labels for the operand

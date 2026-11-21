@@ -2,9 +2,14 @@
 
 import argparse
 
+from unbounded_confidentiality.cli import (
+    report_security,
+    security_config,
+    unknown_result,
+)
+from unbounded_confidentiality.interpreter import AbstractInterpreter
+
 import jpamb
-from jpamb import confidentiality
-from jpamb.confidentiality_cli import report_security, security_config, unknown_result
 
 
 def analyse() -> None:
@@ -26,7 +31,7 @@ def analyse() -> None:
         policy = suite.security_policy(method_id.classname, eff=eff)
         if policy is None:
             raise ValueError("class has no declared security lattice")
-        interpreter = confidentiality.AbstractInterpreter.initial(
+        interpreter = AbstractInterpreter.initial(
             jpamb.Bytecode(suite, eff, {}), method_id, policy, security_config()
         )
     except (

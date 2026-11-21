@@ -24,6 +24,24 @@ def test_info():
     assert run("info").splitlines()[0] == "project-unbounded-confidentiality"
 
 
+def test_project_runs_independently_of_static_interpreter(monkeypatch, capsys):
+    from jpamb import confidentiality
+
+    monkeypatch.syspath_prepend(str(ANALYSIS.parent))
+    import unbounded_analysis
+
+    def fail_if_called(self):
+        pytest.fail("The project command used the shared static interpreter")
+
+    monkeypatch.setattr(confidentiality.AbstractInterpreter, "run", fail_if_called)
+    monkeypatch.chdir(ROOT)
+    monkeypatch.setattr(
+        sys, "argv", [str(ANALYSIS), "jpamb.cases.BasicLeaks.explicitDirect:(I)V"]
+    )
+    unbounded_analysis.analyse()
+    assert "assertion error;maybe" in capsys.readouterr().out.splitlines()
+
+
 @pytest.mark.parametrize(
     ("method", "expected"),
     [

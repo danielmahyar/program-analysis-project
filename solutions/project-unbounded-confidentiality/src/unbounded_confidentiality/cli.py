@@ -1,30 +1,31 @@
-"""Configuration and JPAMB output shared by the confidentiality commands."""
+"""Configuration and JPAMB output for the project interpreter."""
 
 import os
 import sys
 
 import jpamb
-from jpamb import confidentiality
+
+from .interpreter import Config, Diagnostic, Result
 
 
-def security_config() -> confidentiality.Config:
+def security_config() -> Config:
     limit = os.environ.get("JPAMB_CONF_MAX_STEPS")
-    return confidentiality.Config(
+    return Config(
         return_clearance=os.environ.get("JPAMB_CONF_RETURN_CLEARANCE"),
         max_steps=int(limit) if limit is not None else None,
     )
 
 
-def unknown_result(exc: Exception) -> confidentiality.Result:
-    return confidentiality.Result(
+def unknown_result(exc: Exception) -> Result:
+    return Result(
         "unsupported",
-        (confidentiality.Diagnostic(-1, "unsupported", str(exc)),),
+        (Diagnostic(-1, "unsupported", str(exc)),),
         {},
         0,
     )
 
 
-def report_security(result: confidentiality.Result):
+def report_security(result: Result) -> None:
     print(
         f"confidentiality: {result.status} after {result.steps} steps", file=sys.stderr
     )
