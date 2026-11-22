@@ -1,0 +1,104 @@
+{
+  "format": "jpamb-fuzz-followup",
+  "schema_version": 1,
+  "id": "nested-loops-20-seeds-v1",
+  "created_date": "2026-11-22",
+  "manifest": "nested-loops.json",
+  "configuration": {
+    "max_executions": 300,
+    "max_steps": 100000,
+    "seed": 0,
+    "seed_limit": 80,
+    "step_limit": 2500,
+    "timeout_seconds": null
+  },
+  "random_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "exploratory_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "extension_seeds": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "strategies": [
+    "dictionary-random",
+    "unguided-mutation",
+    "coverage-guided"
+  ],
+  "source": "cases/jpamb/cases/AdvancedLeaks.java",
+  "source_sha256": "0d278932eeb24362c4b73325acf151fcc891ac6cdbd374444f211312cffe6a85",
+  "implementation_sha256": {
+    "solutions/dynamic/src/coverage_fuzz.py": "9dd41b7d711a7b835199d42f67b79de0c47137da9df0544bd80eedaf0bd557d5",
+    "solutions/dynamic/src/fuzz_inputs.py": "4d25f8376f8edcd6c2a67e35c97484743e29d1ec20b65b441ad99d348e5cb82a",
+    "solutions/dynamic/src/dynamic.py": "2a43a5373a19dd3e4118f92b09d5c80c42b4fa3cdc674c8431f127a0623c29b4",
+    "solutions/dynamic/src/security_monitor.py": "2cee1d7fdf4b2fae47269e5ca5b35a76c3d3432c1dc28f079692fd25f34b3ad5"
+  },
+  "program_artifacts": {
+    "target/decompiled/jpamb/cases/AdvancedLeaks.json": "8a946f42a12283d9e4782c1e81899fa5e3b00b2d9b853329468ab73e58190d8e"
+  },
+  "original_result": "baseline-results.json",
+  "primary_hypotheses": [
+    {
+      "method": "jpamb.cases.AdvancedLeaks.nestedWhileWeirdCaseLeak:(III)V",
+      "expected_best": "dictionary-random",
+      "criterion": "On extension seeds 5 through 19, dictionary sampling has a strictly higher detection fraction than each mutation strategy.",
+      "reason": "The public loop bounds must reach a corner and secret must equal the bytecode constant 77. Dictionary draws combine the available values independently; coverage need not reward progress towards that exact secret."
+    },
+    {
+      "method": "jpamb.cases.AdvancedLeaks.tripleNestedWhileCornerLeak:(IIII)V",
+      "expected_best": "dictionary-random",
+      "criterion": "On extension seeds 5 through 19, dictionary sampling has a strictly higher detection fraction than each mutation strategy.",
+      "reason": "Three public bounds must reach the corner and secret must equal the bytecode constant -42. Exact-value combinations remain important even when nested loops offer coverage progress."
+    }
+  ],
+  "secondary_hypothesis": {
+    "criterion": "On extension seeds 5 through 19, dictionary sampling has a lower detection fraction on tripleNestedWhileCornerLeak than on nestedWhileWeirdCaseLeak.",
+    "reason": "More arguments must jointly satisfy the triple-loop conditions. This is an informed expectation, not a guaranteed monotonic difficulty relation."
+  },
+  "interpretation": [
+    "Hypotheses were informed by the already observed seeds 0 through 4; they are recorded before examining seeds 5 through 19 for these two methods.",
+    "Re-executed seeds 0 through 4 are replication, not additional independent evidence.",
+    "Use extension seeds 5 through 19 for descriptive expectation checks; present all twenty seeds as the combined estimate.",
+    "No ordering between the two mutation strategies is predicted.",
+    "Keep the original five-seed baseline and four-family challenge study unchanged.",
+    "Do not change methods, input generation, retention, budgets, or expectations after inspecting extension results."
+  ]
+}

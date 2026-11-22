@@ -1,0 +1,111 @@
+{
+  "format": "jpamb-fuzz-study",
+  "schema_version": 1,
+  "id": "search-challenges-v1",
+  "created_date": "2026-11-22",
+  "manifest": "challenges.json",
+  "source": "cases/jpamb/cases/FuzzingChallenges.java",
+  "source_sha256": "28e5bdbced345db4779cca9db45d5592d19f81a4e88e342d280d9d9463a59e5e",
+  "configuration": {
+    "max_executions": 300,
+    "step_limit": 2500,
+    "max_steps": 100000,
+    "timeout_seconds": null,
+    "seed": 0,
+    "seed_limit": 80
+  },
+  "random_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "strategies": [
+    "dictionary-random",
+    "unguided-mutation",
+    "coverage-guided"
+  ],
+  "families": [
+    {
+      "id": "staged-coverage",
+      "methods": [
+        "jpamb.cases.FuzzingChallenges.stagedMask3:(IIII)V",
+        "jpamb.cases.FuzzingChallenges.stagedMask4:(IIII)V",
+        "jpamb.cases.FuzzingChallenges.stagedMask5:(IIII)V"
+      ],
+      "control": "jpamb.cases.FuzzingChallenges.stagedMaskSafe:(IIII)V",
+      "expected_best": "coverage-guided",
+      "hypothesis": "Coverage-guided detection fraction exceeds both baselines on the family macro-average.",
+      "reason": "Successive public guards expose additional instructions, rewarding preservation of intermediate solutions."
+    },
+    {
+      "id": "opaque-dictionary",
+      "methods": [
+        "jpamb.cases.FuzzingChallenges.opaquePair17:(III)V",
+        "jpamb.cases.FuzzingChallenges.opaquePair29:(III)V",
+        "jpamb.cases.FuzzingChallenges.opaquePair53:(III)V"
+      ],
+      "control": "jpamb.cases.FuzzingChallenges.opaquePairSafe:(III)V",
+      "expected_best": "dictionary-random",
+      "hypothesis": "Dictionary sampling detection fraction exceeds both mutation strategies on the family macro-average.",
+      "reason": "The two exact targets are executable constants but one combined bitwise predicate hides partial matches from instruction coverage."
+    },
+    {
+      "id": "neutral-retention",
+      "methods": [
+        "jpamb.cases.FuzzingChallenges.neutralTarget19:(II)V",
+        "jpamb.cases.FuzzingChallenges.neutralTarget23:(II)V",
+        "jpamb.cases.FuzzingChallenges.neutralTarget31:(II)V"
+      ],
+      "control": "jpamb.cases.FuzzingChallenges.neutralTargetSafe:(II)V",
+      "expected_best": "unguided-mutation",
+      "hypothesis": "Unguided mutation detection fraction exceeds both other strategies on the family macro-average.",
+      "reason": "Computed targets are absent from the dictionary. Useful seed/mutation parents add no coverage; unguided retention preserves them for further mutations."
+    },
+    {
+      "id": "arithmetic-blind-spot",
+      "methods": [
+        "jpamb.cases.FuzzingChallenges.productTarget257:(II)V",
+        "jpamb.cases.FuzzingChallenges.productTarget509:(II)V",
+        "jpamb.cases.FuzzingChallenges.productTarget1031:(II)V"
+      ],
+      "control": "jpamb.cases.FuzzingChallenges.productTargetSafe:(II)V",
+      "expected_best": null,
+      "hypothesis": "Each strategy has at most 10 percent successful trials on the family macro-average; no winner is predicted.",
+      "reason": "Large computed equality targets are absent from the dictionary and there is no partial-match coverage or arithmetic constraint solving."
+    }
+  ],
+  "rules": [
+    "All shared initial seeds must complete without a violation on every challenge and control before comparison.",
+    "Keep all declared methods and all outcomes, including ties and all-zero results.",
+    "Do not tune methods, input generation, retention, budgets, or hypotheses after viewing comparison results.",
+    "Three variants per family are related mechanism tests, not independent real-world samples.",
+    "Do not interpret synthetic family averages as a general ranking.",
+    "The existing 68-method baseline and its results remain separate."
+  ],
+  "implementation_sha256": {
+    "solutions/dynamic/src/coverage_fuzz.py": "9dd41b7d711a7b835199d42f67b79de0c47137da9df0544bd80eedaf0bd557d5",
+    "solutions/dynamic/src/fuzz_inputs.py": "4d25f8376f8edcd6c2a67e35c97484743e29d1ec20b65b441ad99d348e5cb82a",
+    "solutions/dynamic/src/dynamic.py": "2a43a5373a19dd3e4118f92b09d5c80c42b4fa3cdc674c8431f127a0623c29b4",
+    "solutions/dynamic/src/security_monitor.py": "2cee1d7fdf4b2fae47269e5ca5b35a76c3d3432c1dc28f079692fd25f34b3ad5"
+  },
+  "program_artifacts": {
+    "target/decompiled/jpamb/cases/FuzzingChallenges.json": "95054c90c9773dbb8f1bf426f27275cf9bdbc2f3cbbf4fb310427ad400c1ca9c"
+  }
+}

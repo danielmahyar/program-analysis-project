@@ -14,7 +14,9 @@ supported subset: 301 selected tests, 115 interpreter cases, and 118 completed
 security executions agreeing with the JVM. Three recursive executions remain
 unsupported. Versioned user-facing campaign reports and CLI replay are now
 implemented in `fuzz_reports.py` and `fuzz_cli.py`, with concrete/hypothetical
-provenance and program snapshots. Controlled strategy comparisons remain future work.
+provenance and program snapshots. Controlled strategy comparisons and a separate
+challenge extension are implemented; see [the baseline evaluation](fuzzing-evaluation.md)
+and [the challenge overview](fuzzing-challenge-study.md).
 
 ## Purpose and scope
 

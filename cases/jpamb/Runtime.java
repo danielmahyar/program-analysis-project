@@ -45,7 +45,8 @@ public class Runtime {
           Clearance.class,
           Compartments.class,
           BasicLeaks.class,
-          AdvancedLeaks.class);
+          AdvancedLeaks.class,
+          FuzzingChallenges.class);
 
   /** Loads the classes in {@code jpamb.cases} through {@link BytecodeInstrumenter#transform}. */
   static final class CaseLoader extends ClassLoader {

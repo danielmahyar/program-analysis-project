@@ -5,6 +5,7 @@ import csv
 import json
 import statistics
 import sys
+import time
 from collections import defaultdict
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -229,6 +230,18 @@ def validate_targets(names):
     return methods
 
 
+def _replace_table(temporary, destination):
+    # Windows readers/virus scanners can briefly deny replacement of an open file.
+    for attempt in range(10):
+        try:
+            temporary.replace(destination)
+            return
+        except PermissionError:
+            if attempt == 9:
+                raise
+            time.sleep(0.05)
+
+
 def _write_tables(output, rows, metadata):
     # Called after each complete trial: interrupted runs retain completed evidence.
     summary = {
@@ -246,14 +259,14 @@ def _write_tables(output, rows, metadata):
             json.dumps(document, indent=2, sort_keys=True, allow_nan=False) + "\n",
             encoding="utf-8",
         )
-        temporary.replace(path)
+        _replace_table(temporary, path)
     if rows:
         temporary = output / "trials.csv.tmp"
         with temporary.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
             writer.writeheader()
             writer.writerows(rows)
-        temporary.replace(output / "trials.csv")
+        _replace_table(temporary, output / "trials.csv")
 
 
 def evaluate(

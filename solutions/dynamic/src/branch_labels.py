@@ -35,15 +35,22 @@ def immediate_postdominators(opcodes) -> list[int]:
 
 def holds(cond: jvm.CmpOpr, a: int, b: int) -> bool:
     return {
-        jvm.CmpOpr.Eq: a == b, jvm.CmpOpr.Ne: a != b,
-        jvm.CmpOpr.Lt: a < b, jvm.CmpOpr.Le: a <= b,
-        jvm.CmpOpr.Gt: a > b, jvm.CmpOpr.Ge: a >= b,
+        jvm.CmpOpr.Eq: a == b,
+        jvm.CmpOpr.Ne: a != b,
+        jvm.CmpOpr.Lt: a < b,
+        jvm.CmpOpr.Le: a <= b,
+        jvm.CmpOpr.Gt: a > b,
+        jvm.CmpOpr.Ge: a >= b,
     }[cond]
 
 
 def main():
     methodid, input, max_steps = jpamb.getcase(
-        "branch-labels", "1.0", "The Rice Theorem Cookers", ["dynamic"], for_science=False
+        "branch-labels",
+        "1.0",
+        "The Rice Theorem Cookers",
+        ["dynamic"],
+        for_science=False,
     )
     suite, eff = jpamb.setup()
     bc = jpamb.Bytecode(suite, eff, {})
@@ -76,7 +83,7 @@ def main():
             print(f"      -- reached merge point {merged_at}: pc {old} -> {pc_label()}")
 
         op = opcodes[i]
-        print(f"[{i:2}] pc={str(pc_label()):18} {type(op).__name__:12}", end=" ")
+        print(f"[{i:2}] pc={pc_label()!s:18} {type(op).__name__:12}", end=" ")
         nxt = i + 1
 
         match op:
@@ -90,7 +97,10 @@ def main():
 
             case jvm.Store(index=n):
                 val, lbl = stack.pop()
-                locals_[n] = (val, lat.join(lbl, pc_label()))  # implicit flow lands here
+                locals_[n] = (
+                    val,
+                    lat.join(lbl, pc_label()),
+                )  # implicit flow lands here
                 print(f"local[{n}] := {val} : {locals_[n][1]}", end="")
 
             case jvm.Ifz(condition=c, target=t) | jvm.If(condition=c, target=t):
@@ -104,8 +114,11 @@ def main():
                 pc_stack.append((ipdom[i], new_pc))
                 taken = holds(c, a, b)
                 nxt = t if taken else i + 1
-                print(f"cond {cond_label} -> pc {new_pc} until [{ipdom[i]}], "
-                      f"{'jump' if taken else 'fall through'} to [{nxt}]", end="")
+                print(
+                    f"cond {cond_label} -> pc {new_pc} until [{ipdom[i]}], "
+                    f"{'jump' if taken else 'fall through'} to [{nxt}]",
+                    end="",
+                )
 
             case jvm.Goto(target=t):
                 nxt = t
@@ -113,10 +126,12 @@ def main():
             case jvm.InvokeStatic(method=callee):
                 sink = policy.sink(callee)
                 if sink is None:
-                    raise NotImplementedError(f"only sink calls are supported: {callee}")
+                    raise NotImplementedError(
+                        f"only sink calls are supported: {callee}"
+                    )
                 n = len(sink.param_labels)
-                args = stack[len(stack) - n:]
-                del stack[len(stack) - n:]
+                args = stack[len(stack) - n :]
+                del stack[len(stack) - n :]
                 for (val, lbl), clearance in zip(args, sink.param_labels):
                     # 3. A sink sees the value's label joined with the context.
                     effective = lat.join(lbl, pc_label())

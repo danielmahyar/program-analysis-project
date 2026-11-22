@@ -226,9 +226,13 @@ class Analysis:
                 branch_pc = rules.enter_branch(pc, cond_label)
                 cond_const = self.eval_const(cond_node)
                 if cond_const is True:
-                    return rules.assign(self.expr(then_node, env, branch_pc), cond_label)
+                    return rules.assign(
+                        self.expr(then_node, env, branch_pc), cond_label
+                    )
                 if cond_const is False:
-                    return rules.assign(self.expr(else_node, env, branch_pc), cond_label)
+                    return rules.assign(
+                        self.expr(else_node, env, branch_pc), cond_label
+                    )
                 self._cond_depth += 1
                 try:
                     t_lbl = self.expr(then_node, env, branch_pc)
@@ -244,9 +248,7 @@ class Analysis:
                     label = rules.binary(label, self.expr(child, env, pc))
                 return label
 
-    def _find_helper_node(
-        self, name: str, arity: int
-    ) -> tree_sitter.Node | None:
+    def _find_helper_node(self, name: str, arity: int) -> tree_sitter.Node | None:
         if self.tree_root is None:
             return None
         query = tree_sitter.Query(
@@ -362,7 +364,9 @@ class Analysis:
                             rules.assign(
                                 rules.binary(
                                     rules.constant(),
-                                    frozenset().union(*labels) if labels else rules.PUBLIC,
+                                    frozenset().union(*labels)
+                                    if labels
+                                    else rules.PUBLIC,
                                 ),
                                 rules.PUBLIC,
                             ),
@@ -414,7 +418,13 @@ class Analysis:
         if node.type in ABRUPT_NODES:
             return True
         # Do not confuse a `break`/`continue` inside a nested loop with breaking the outer `if`
-        if node.type in ("while_statement", "for_statement", "do_statement", "switch_expression", "switch_statement"):
+        if node.type in (
+            "while_statement",
+            "for_statement",
+            "do_statement",
+            "switch_expression",
+            "switch_statement",
+        ):
             return any(
                 c.type in ("return_statement", "throw_statement")
                 or self._has_return_or_throw(c)
@@ -489,11 +499,11 @@ class Analysis:
 
                 # Improvement 4: Constant folding / Dead-branch pruning
                 if cond_const is True:
-                    then_env, then_pc = self._stmt(consequence, env, body_pc)
+                    then_env, _then_pc = self._stmt(consequence, env, body_pc)
                     next_pc = body_pc if self._has_abrupt_flow(consequence) else pc
                     return then_env, next_pc
                 if cond_const is False:
-                    else_env, else_pc = self._stmt(alternative, env, body_pc)
+                    else_env, _else_pc = self._stmt(alternative, env, body_pc)
                     next_pc = body_pc if self._has_abrupt_flow(alternative) else pc
                     return else_env, next_pc
 
@@ -567,7 +577,9 @@ class Analysis:
                     next_pc = rules.enter_branch(cur_pc, cond)
                     new_env = rules.merge(env, body_env)
                     if new_env == env and next_pc == cur_pc:
-                        return body_env, (next_pc if self._has_abrupt_flow(body_node) else pc)
+                        return body_env, (
+                            next_pc if self._has_abrupt_flow(body_node) else pc
+                        )
                     env = new_env
                     cur_pc = next_pc
 
@@ -610,7 +622,9 @@ class Analysis:
                 finally:
                     self._cond_depth -= 1
 
-            case "switch_expression" | "switch_statement":  # switch (c) { ... } (Improvement 2)
+            case (
+                "switch_expression" | "switch_statement"
+            ):  # switch (c) { ... } (Improvement 2)
                 cond_node = node.child_by_field_name("condition")
                 body_node = node.child_by_field_name("body")
                 cond = self.expr(cond_node, env, pc)

@@ -410,3 +410,44 @@ def test_checked_in_target_manifests_have_expected_scope():
     assert len(pilot) == 8 and len(full) == 68
     assert set(pilot) <= set(full)
     assert all(not method.extension.name.startswith("recursive") for method in full)
+
+
+def test_table_replacement_retries_transient_lock_without_losing_previous_data(
+    tmp_path, monkeypatch
+):
+    temporary = tmp_path / "trials.tmp"
+    destination = tmp_path / "trials.json"
+    temporary.write_text("new")
+    destination.write_text("old")
+    actual_replace = Path.replace
+    attempts = []
+
+    def briefly_locked(path, target):
+        attempts.append(path)
+        if len(attempts) == 1:
+            assert destination.read_text() == "old"
+            raise PermissionError("file briefly held by a reader")
+        return actual_replace(path, target)
+
+    monkeypatch.setattr(Path, "replace", briefly_locked)
+    monkeypatch.setattr(evaluation.time, "sleep", lambda _: None)
+    evaluation._replace_table(temporary, destination)
+    assert len(attempts) == 2 and destination.read_text() == "new"
+
+
+def test_persistent_table_lock_propagates_and_preserves_existing_destination(
+    tmp_path, monkeypatch
+):
+    temporary = tmp_path / "trials.tmp"
+    destination = tmp_path / "trials.json"
+    temporary.write_text("new")
+    destination.write_text("old")
+
+    def locked(*args):
+        raise PermissionError("persistent lock")
+
+    monkeypatch.setattr(Path, "replace", locked)
+    monkeypatch.setattr(evaluation.time, "sleep", lambda _: None)
+    with pytest.raises(PermissionError, match="persistent lock"):
+        evaluation._replace_table(temporary, destination)
+    assert destination.read_text() == "old" and temporary.read_text() == "new"

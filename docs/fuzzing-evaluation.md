@@ -175,3 +175,8 @@ Assess richer feedback, comparison guidance, alternate corpus scheduling, or
 minimization only as separately recorded extensions. The baseline harness makes
 their benefit measurable without changing the security semantics or silently
 adding known validation inputs to the search.
+
+The separate [challenge study](fuzzing-challenge-study.md) now complements this
+baseline with four predeclared synthetic families, 12 seed-hard leaking methods,
+four safe controls, and 20 RNG seeds per strategy. Its results are reported
+separately so the original observations and limitations remain visible.

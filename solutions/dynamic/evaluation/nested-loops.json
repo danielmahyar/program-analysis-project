@@ -1,0 +1,8 @@
+{
+  "format": "jpamb-fuzz-targets",
+  "schema_version": 1,
+  "methods": [
+    "jpamb.cases.AdvancedLeaks.nestedWhileWeirdCaseLeak:(III)V",
+    "jpamb.cases.AdvancedLeaks.tripleNestedWhileCornerLeak:(IIII)V"
+  ]
+}

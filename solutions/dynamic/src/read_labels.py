@@ -8,16 +8,18 @@ interpreter would start from. Nothing is executed.
         'jpamb.cases.InfoFlow.explicitLeak:(I)V' '(42)' 100
 """
 
-import sys
-
 import jpamb
 import jvm
 
 
 def main():
     # 1. Same entry point as the interpreter: method id, concrete input, step budget.
-    methodid, input, max_steps = jpamb.getcase(
-        "dynamic-labels", "1.0", "The Rice Theorem Cookers", ["dynamic"], for_science=False
+    methodid, input, _max_steps = jpamb.getcase(
+        "dynamic-labels",
+        "1.0",
+        "The Rice Theorem Cookers",
+        ["dynamic"],
+        for_science=False,
     )
     suite, eff = jpamb.setup()
     bc = jpamb.Bytecode(suite, eff, {})
@@ -32,7 +34,7 @@ def main():
     method = policy.method(methodid)  # MethodSecurityPolicy of the case being run
 
     print(f"case     {methodid}")
-    print(f"lattices", {d: l.levels for d, l in lattice.lattices.items()})
+    print("lattices", {d: l.levels for d, l in lattice.lattices.items()})
     print(f"bottom   {lattice.bot}   (label of constants)")
 
     # 3. Initial shadow locals: one label per local slot, aligned with frame.locals.
@@ -63,8 +65,10 @@ def main():
         sink = next(iter(policy.sinks.values()))
         arg = method.param_labels[0]
         ok = lattice.le(arg, sink.param_labels[0])
-        print(f"\nexample: passing {arg} to {sink.name}: "
-              f"{'ok' if ok else 'leak -> assertion error'}")
+        print(
+            f"\nexample: passing {arg} to {sink.name}: "
+            f"{'ok' if ok else 'leak -> assertion error'}"
+        )
 
 
 if __name__ == "__main__":

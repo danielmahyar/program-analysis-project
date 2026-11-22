@@ -1,0 +1,22 @@
+{
+  "format": "jpamb-fuzz-targets",
+  "schema_version": 1,
+  "methods": [
+    "jpamb.cases.FuzzingChallenges.stagedMask3:(IIII)V",
+    "jpamb.cases.FuzzingChallenges.stagedMask4:(IIII)V",
+    "jpamb.cases.FuzzingChallenges.stagedMask5:(IIII)V",
+    "jpamb.cases.FuzzingChallenges.stagedMaskSafe:(IIII)V",
+    "jpamb.cases.FuzzingChallenges.opaquePair17:(III)V",
+    "jpamb.cases.FuzzingChallenges.opaquePair29:(III)V",
+    "jpamb.cases.FuzzingChallenges.opaquePair53:(III)V",
+    "jpamb.cases.FuzzingChallenges.opaquePairSafe:(III)V",
+    "jpamb.cases.FuzzingChallenges.neutralTarget19:(II)V",
+    "jpamb.cases.FuzzingChallenges.neutralTarget23:(II)V",
+    "jpamb.cases.FuzzingChallenges.neutralTarget31:(II)V",
+    "jpamb.cases.FuzzingChallenges.neutralTargetSafe:(II)V",
+    "jpamb.cases.FuzzingChallenges.productTarget257:(II)V",
+    "jpamb.cases.FuzzingChallenges.productTarget509:(II)V",
+    "jpamb.cases.FuzzingChallenges.productTarget1031:(II)V",
+    "jpamb.cases.FuzzingChallenges.productTargetSafe:(II)V"
+  ]
+}

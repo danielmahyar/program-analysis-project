@@ -149,9 +149,7 @@ class SetLattice:
         return cls(compartments=compartments, levels=levels)
 
     @classmethod
-    def from_policy(
-        cls, policy: ClassSecurityPolicy, dim: str = "conf"
-    ) -> SetLattice:
+    def from_policy(cls, policy: ClassSecurityPolicy, dim: str = "conf") -> SetLattice:
         return cls.from_lattice(policy.product_lattice.lattices[dim])
 
     @property

@@ -78,7 +78,9 @@ def test_certify_includes_pc():
     # A sink, a parameter or an annotated return with a fixed label:
     # secure iff L(e) ∪ pc ⊆ L_fixed.
     assert rules.certify(ONCO, rules.PUBLIC, ONCO)
-    assert not rules.certify(rules.constant(), ONCO, rules.PUBLIC)  # sink(0) under a secret if
+    assert not rules.certify(
+        rules.constant(), ONCO, rules.PUBLIC
+    )  # sink(0) under a secret if
     assert not rules.certify(ONCO, PSYCH, ONCO)
     assert rules.certify(ONCO, PSYCH, BOTH)
 
@@ -127,12 +129,16 @@ def test_sets_agree_with_declared_order(name):
     for a, b, c in product(conf.levels, repeat=3):
         assert rules.flows(L(a), L(b)) == conf.le(a, b)
         # a union of labels flows exactly when the declared join does
-        assert rules.flows(rules.binary(L(a), L(b)), L(c)) == conf.le(conf.join(a, b), c)
+        assert rules.flows(rules.binary(L(a), L(b)), L(c)) == conf.le(
+            conf.join(a, b), c
+        )
 
 
 def test_param_labels_of_a_case():
     policy = suite.security_policy(jvm.ClassName("jpamb.cases.Hospital"), eff=eff)
     assert policy is not None
     lat = rules.SetLattice.from_policy(policy)
-    method = next(m for m in policy.case_methods.values() if m.name == "compartmentLeak")
+    method = next(
+        m for m in policy.case_methods.values() if m.name == "compartmentLeak"
+    )
     assert lat.param_labels(method) == (PSYCH,)

@@ -167,6 +167,27 @@ equally to every strategy. No hybrid hypothetical taint is included. No-find is
 not evidence that a method is safe, and coverage guidance is not assumed to win.
 See [evaluation results and methodology](../../docs/fuzzing-evaluation.md).
 
+The separate [challenge study](../../docs/fuzzing-challenge-study.md) extends the
+comparison with 12 seed-hard leaking methods and four safe controls, organized
+into four mechanism families. Its recorded hypotheses, 20 RNG seeds, and source/
+program/search digests are checked before execution:
+
+```powershell
+.\.venv\Scripts\python.exe solutions/dynamic/src/fuzz_study.py --protocol solutions/dynamic/evaluation/challenges-protocol.json --output reports/fuzz-challenges-v1-complete
+```
+
+This is also exposed as `coverage-fuzz-study` after installation. The original
+68-method manifest and baseline results remain separate.
+
+The original two nested-loop challenges also have a
+[twenty-seed follow-up](../../docs/fuzzing-challenge-study.md#nested-loop-follow-up-informed-expectations-and-additional-seeds).
+It reports the original five seeds, fifteen additional seeds used to check
+informed expectations, and combined estimates separately. `src/fuzz_followup.py`
+exports those partitions and refuses incomplete matrices or changed original
+detection counts. The concise combined `evaluation/strategy-comparison.csv`
+reports hypotheses and results using twenty seeds per method, with the detailed
+explanations and original/additional seed partitions in the overview document.
+
 ## Runner interface
 
 ```python

@@ -1111,6 +1111,274 @@
     )
     :results (ok)
   )
+  :"jpamb.cases.FuzzingChallenges.neutralTarget19!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTarget19:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 8)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.neutralTarget19!(19, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTarget19:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.neutralTarget23!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTarget23:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 8)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.neutralTarget23!(23, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTarget23:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.neutralTarget31!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTarget31:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 8)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.neutralTarget31!(31, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTarget31:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.neutralTargetSafe!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTargetSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 8)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.neutralTargetSafe!(19, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTargetSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
+      )
+      :"jpamb.cases.FuzzingChallenges.publishHigh:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePair17!(0, 0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePair17:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 10)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePair17!(17, 43, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePair17:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePair29!(0, 0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePair29:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 10)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePair29!(29, 71, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePair29:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePair53!(0, 0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePair53:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 10)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePair53!(53, 113, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePair53:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePairSafe!(0, 0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePairSafe:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 10)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePairSafe!(17, 43, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePairSafe:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10)
+      )
+      :"jpamb.cases.FuzzingChallenges.publishHigh:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.productTarget1031!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTarget1031:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 11)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.productTarget1031!(1065023, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTarget1031:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.productTarget257!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTarget257:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 11)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.productTarget257!(67591, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTarget257:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.productTarget509!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTarget509:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 11)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.productTarget509!(265189, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTarget509:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.productTargetSafe!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTargetSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 11)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.productTargetSafe!(67591, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTargetSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11)
+      )
+      :"jpamb.cases.FuzzingChallenges.publishHigh:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMask3!(0, 0, 0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.stagedMask3:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 17)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMask3!(3, 5, 6, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.stagedMask3:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMask4!(0, 0, 0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.stagedMask4:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 17)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMask4!(11, 9, 14, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.stagedMask4:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMask5!(0, 0, 0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.stagedMask5:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 17)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMask5!(19, 25, 22, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.stagedMask5:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMaskSafe!(0, 0, 0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.stagedMaskSafe:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 17)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMaskSafe!(3, 5, 6, 99)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.publishHigh:(I)V" (coverage
+        :reachable (0)
+      )
+      :"jpamb.cases.FuzzingChallenges.stagedMaskSafe:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17)
+      )
+    )
+    :results (ok)
+  )
   :"jpamb.cases.Hospital.adminCombinesDepartments!(10, 20)V" (control
     :coverage (
       :"jpamb.cases.Hospital.adminCombinesDepartments:(II)V" (coverage
@@ -2556,6 +2824,146 @@
     :coverage (
       :"jpamb.cases.Dependent.safeDivByN:(I)I" (coverage
         :reachable (0 1 6 7)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.neutralTarget19:(II)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTarget19:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.neutralTarget23:(II)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTarget23:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.neutralTarget31:(II)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTarget31:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.neutralTargetSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.neutralTargetSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8)
+      )
+      :"jpamb.cases.FuzzingChallenges.publishHigh:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePair17:(III)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePair17:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePair29:(III)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePair29:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePair53:(III)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePair53:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.opaquePairSafe:(III)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.opaquePairSafe:(III)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10)
+      )
+      :"jpamb.cases.FuzzingChallenges.publishHigh:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.productTarget1031:(II)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTarget1031:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.productTarget257:(II)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTarget257:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.productTarget509:(II)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTarget509:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.productTargetSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.productTargetSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11)
+      )
+      :"jpamb.cases.FuzzingChallenges.publishHigh:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMask3:(IIII)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.stagedMask3:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMask4:(IIII)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.stagedMask4:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMask5:(IIII)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.stagedMask5:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17)
+      )
+    )
+    :results ("assertion error" ok)
+  )
+  :"jpamb.cases.FuzzingChallenges.stagedMaskSafe:(IIII)V" (control
+    :coverage (
+      :"jpamb.cases.FuzzingChallenges.stagedMaskSafe:(IIII)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17)
+      )
+      :"jpamb.cases.FuzzingChallenges.publishHigh:(I)V" (coverage
+        :reachable (0)
       )
     )
     :results (ok)
