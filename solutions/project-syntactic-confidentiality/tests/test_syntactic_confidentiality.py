@@ -5,14 +5,17 @@ Run from the repository root (needs `uv run jpamb build` first):
     uv run --project solutions/project-syntactic-confidentiality pytest solutions/project-syntactic-confidentiality/tests
 """
 
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
-ANALYSIS = ROOT / "solutions/project-syntactic-confidentiality/src/syntactic_confidentiality.py"
+ANALYSIS = (
+    ROOT
+    / "solutions/project-syntactic-confidentiality/src/syntactic_confidentiality.py"
+)
 
 if not (ROOT / "target/decompiled").exists():
     pytest.skip("run `uv run jpamb build` first", allow_module_level=True)
@@ -32,7 +35,10 @@ def run(methodid: str) -> dict[str, str]:
 def test_info():
     out = subprocess.run(
         [sys.executable, str(ANALYSIS), "info"],
-        cwd=ROOT, capture_output=True, text=True, check=True,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     assert out.splitlines()[0] == "project-syntactic-confidentiality"
 
@@ -65,10 +71,11 @@ def test_dead_branch_leak_pruned_statically():
 # --- the rules on small snippets, with the Hospital policy ---------------------
 
 sys.path.insert(0, str(ANALYSIS.parent))
-import jpamb  # noqa: E402
-import jvm  # noqa: E402
-import syntactic_confidentiality as sc  # noqa: E402
-import tree_sitter  # noqa: E402
+import syntactic_confidentiality as sc
+import tree_sitter
+
+import jpamb
+import jvm
 
 ONCO, PSYCH = frozenset({"Oncology"}), frozenset({"Psych"})
 
@@ -76,7 +83,9 @@ ONCO, PSYCH = frozenset({"Oncology"}), frozenset({"Psych"})
 def analyse(body: str, params: dict[str, frozenset[str]], extra_methods: str = ""):
     suite, eff = jpamb.setup()
     policy = suite.security_policy(jvm.ClassName("jpamb.cases.Hospital"), eff=eff)
-    method = next(m for m in policy.case_methods.values() if m.name == "compartmentLeak")
+    method = next(
+        m for m in policy.case_methods.values() if m.name == "compartmentLeak"
+    )
     code = f"class C {{ void m() {{ {body} }} {extra_methods} }}".encode()
     tree = tree_sitter.Parser(sc.JAVA).parse(code)
     analysis = sc.Analysis(policy, method, tree_root=tree.root_node)
@@ -113,7 +122,7 @@ def test_locals_are_inferred_including_increment():
 
 def test_improvement_1_early_return_propagates_pc():
     # Reaching `publicDashboard(0)` after `if (onco > 0) { return; }` leaks `onco > 0`!
-    env, leaks = analyse(
+    _env, leaks = analyse(
         "if (onco > 0) { return; } publicDashboard(0);",
         {"onco": ONCO},
     )

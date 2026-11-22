@@ -5,9 +5,9 @@ Run from the repository root:
     uv run --project solutions/hybrid pytest solutions/hybrid/tests
 """
 
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -15,10 +15,9 @@ ROOT = Path(__file__).resolve().parents[3]
 HYBRID_SCRIPT = ROOT / "solutions" / "hybrid" / "src" / "hybrid.py"
 
 sys.path.insert(0, str(HYBRID_SCRIPT.parent))
-import hybrid  # noqa: E402
-import jpamb  # noqa: E402
-import jvm  # noqa: E402
-import tree_sitter  # noqa: E402
+import hybrid
+
+import jpamb
 
 if not (ROOT / "target/decompiled").exists():
     pytest.skip("run `uv run jpamb build` first", allow_module_level=True)
@@ -111,7 +110,9 @@ def test_advanced_leaks_nested_while_corner_cases():
     preds_weird = run_cli("jpamb.cases.AdvancedLeaks.nestedWhileWeirdCaseLeak:(III)V")
     assert preds_weird["assertion error"] in ("confirmed-leak", "syntactic-deep-leak")
 
-    preds_triple = run_cli("jpamb.cases.AdvancedLeaks.tripleNestedWhileCornerLeak:(IIII)V")
+    preds_triple = run_cli(
+        "jpamb.cases.AdvancedLeaks.tripleNestedWhileCornerLeak:(IIII)V"
+    )
     assert preds_triple["assertion error"] in ("confirmed-leak", "syntactic-deep-leak")
 
     preds_safe = run_cli("jpamb.cases.AdvancedLeaks.nestedWhileSafe:(III)V")

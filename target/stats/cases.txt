@@ -3,6 +3,7 @@ jpamb.cases.AdvancedLeaks.continueSkipsSink:(I)V             (0) -> assertion er
 jpamb.cases.AdvancedLeaks.continueSkipsSink:(I)V             (1) -> ok
 jpamb.cases.AdvancedLeaks.continueSkipsSinkSafe:(I)V         (0) -> ok
 jpamb.cases.AdvancedLeaks.continueSkipsSinkSafe:(I)V         (1) -> ok
+jpamb.cases.AdvancedLeaks.doWhileLeak:(I)V                   (0) -> ok
 jpamb.cases.AdvancedLeaks.doWhileLeak:(I)V                   (3) -> assertion error
 jpamb.cases.AdvancedLeaks.earlyReturnBeforeSink:(I)V         (-5) -> assertion error
 jpamb.cases.AdvancedLeaks.earlyReturnBeforeSink:(I)V         (10) -> ok
@@ -73,6 +74,7 @@ jpamb.cases.BasicLeaks.implicitReturn:(I)I                   (0) -> assertion er
 jpamb.cases.BasicLeaks.implicitReturn:(I)I                   (1) -> assertion error
 jpamb.cases.BasicLeaks.implicitSinkInBranch:(I)V             (0) -> ok
 jpamb.cases.BasicLeaks.implicitSinkInBranch:(I)V             (1) -> assertion error
+jpamb.cases.BasicLeaks.implicitWhile:(I)V                    (0) -> ok
 jpamb.cases.BasicLeaks.implicitWhile:(I)V                    (3) -> assertion error
 jpamb.cases.BasicLeaks.leakAfterBackEdge:(II)V               (7, 1) -> ok
 jpamb.cases.BasicLeaks.leakAfterBackEdge:(II)V               (7, 2) -> assertion error
@@ -121,6 +123,38 @@ jpamb.cases.Dependent.divisionLoop:(I)V                      (0) -> ok
 jpamb.cases.Dependent.divisionLoop:(I)V                      (1024) -> assertion error
 jpamb.cases.Dependent.normalizedDistance:(II)I               (0, 0) -> ok
 jpamb.cases.Dependent.safeDivByN:(I)I                        (0) -> ok
+jpamb.cases.FuzzingChallenges.neutralTarget19:(II)V          (0, 99) -> ok
+jpamb.cases.FuzzingChallenges.neutralTarget19:(II)V          (19, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.neutralTarget23:(II)V          (0, 99) -> ok
+jpamb.cases.FuzzingChallenges.neutralTarget23:(II)V          (23, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.neutralTarget31:(II)V          (0, 99) -> ok
+jpamb.cases.FuzzingChallenges.neutralTarget31:(II)V          (31, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.neutralTargetSafe:(II)V        (0, 99) -> ok
+jpamb.cases.FuzzingChallenges.neutralTargetSafe:(II)V        (19, 99) -> ok
+jpamb.cases.FuzzingChallenges.opaquePair17:(III)V            (0, 0, 99) -> ok
+jpamb.cases.FuzzingChallenges.opaquePair17:(III)V            (17, 43, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.opaquePair29:(III)V            (0, 0, 99) -> ok
+jpamb.cases.FuzzingChallenges.opaquePair29:(III)V            (29, 71, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.opaquePair53:(III)V            (0, 0, 99) -> ok
+jpamb.cases.FuzzingChallenges.opaquePair53:(III)V            (53, 113, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.opaquePairSafe:(III)V          (0, 0, 99) -> ok
+jpamb.cases.FuzzingChallenges.opaquePairSafe:(III)V          (17, 43, 99) -> ok
+jpamb.cases.FuzzingChallenges.productTarget1031:(II)V        (0, 99) -> ok
+jpamb.cases.FuzzingChallenges.productTarget1031:(II)V        (1065023, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.productTarget257:(II)V         (0, 99) -> ok
+jpamb.cases.FuzzingChallenges.productTarget257:(II)V         (67591, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.productTarget509:(II)V         (0, 99) -> ok
+jpamb.cases.FuzzingChallenges.productTarget509:(II)V         (265189, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.productTargetSafe:(II)V        (0, 99) -> ok
+jpamb.cases.FuzzingChallenges.productTargetSafe:(II)V        (67591, 99) -> ok
+jpamb.cases.FuzzingChallenges.stagedMask3:(IIII)V            (0, 0, 0, 99) -> ok
+jpamb.cases.FuzzingChallenges.stagedMask3:(IIII)V            (3, 5, 6, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.stagedMask4:(IIII)V            (0, 0, 0, 99) -> ok
+jpamb.cases.FuzzingChallenges.stagedMask4:(IIII)V            (11, 9, 14, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.stagedMask5:(IIII)V            (0, 0, 0, 99) -> ok
+jpamb.cases.FuzzingChallenges.stagedMask5:(IIII)V            (19, 25, 22, 99) -> assertion error
+jpamb.cases.FuzzingChallenges.stagedMaskSafe:(IIII)V         (0, 0, 0, 99) -> ok
+jpamb.cases.FuzzingChallenges.stagedMaskSafe:(IIII)V         (3, 5, 6, 99) -> ok
 jpamb.cases.Hospital.adminCombinesDepartments:(II)V          (10, 20) -> ok
 jpamb.cases.Hospital.combinedToOneDepartment:(II)V           (10, 20) -> assertion error
 jpamb.cases.Hospital.compartmentLeak:(I)V                    (4) -> assertion error

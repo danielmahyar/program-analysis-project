@@ -1,0 +1,8 @@
+benchmark,hypothesis_basis,expected_result,dictionary_found,unguided_found,coverage_guided_found,trials_per_strategy,interpretation
+nestedWhileWeirdCaseLeak,Informed follow-up; first five seeds already observed,Dictionary leads,20,5,6,20,Consistent on additional 15 seeds; combined counts are not a blind test
+tripleNestedWhileCornerLeak,Informed follow-up; first five seeds already observed,Dictionary leads; harder than double loop,10,3,7,20,Consistent on additional 15 seeds; combined counts are not a blind test
+staged-coverage (3 methods),Predeclared before strategy-specific runs,Coverage-guided leads,4,0,18,60,Matches expectation descriptively; related variants are not independent programs
+opaque-dictionary (3 methods),Predeclared before strategy-specific runs,Dictionary leads,60,3,3,60,Matches expectation descriptively; related variants are not independent programs
+neutral-retention (3 methods),Predeclared before strategy-specific runs,Unguided mutation leads,0,27,0,60,Matches expectation descriptively; related variants are not independent programs
+arithmetic-blind-spot (3 methods),Predeclared before strategy-specific runs,Each strategy finds at most 10 percent; no winner predicted,0,0,0,60,Matches expectation descriptively; related variants are not independent programs
+Safe controls (4 methods),Control expectation,No strategy reports a violation,0,0,0,80,No control findings observed

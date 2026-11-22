@@ -7,7 +7,7 @@ import pytest
 import jvm
 import sexpr
 from jpamb.confidentiality import AbstractInterpreter, Config, State, Value, analyze
-from jpamb.security import ClassSecurityPolicy, ProductLattice, SecurityLattice
+from jpamb.security import ClassSecurityPolicy, SecurityLattice
 from jvm.state import PC
 
 from .test_security_lattice import _ann, _class, _lattice, _method, _param, _str

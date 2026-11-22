@@ -141,6 +141,7 @@ public class BasicLeaks {
 
   // The loop count reveals the secret.
   @Case("(3) -> assertion error")
+  @Case("(0) -> ok")
   @Tag({ IMPLICIT_FLOW, LOOP, CALL })
   public static void implicitWhile(@Sec(conf = "High") int secret) {
     int i = 0;

@@ -2,9 +2,21 @@
 
 Implementation plan based on the current Python confidentiality analysis. The
 independent first milestone is implemented in `solutions/dynamic/src/fuzz_contract.py`,
-`fuzz_inputs.py`, and `coverage_fuzz.py`, with controlled-runner tests. A real runner
-adapter, persistent reports, CLI integration, and benchmark evaluation remain
-future work. The teammate's dynamic implementation remains the execution engine.
+`fuzz_inputs.py`, and `coverage_fuzz.py`, with controlled-runner tests. Commit
+`4769a8e` adds a concrete interpreter, Python shadow monitor, `dynamic.make_runner`,
+and CLI calls to the fuzzer. The 2026-11-21 implementation aligns the runner with
+the Python confidentiality rules and adds real-runner integration regressions,
+including configuration, fixed writes, return defaults, control dependencies,
+and a replayable fuzzing campaign. See the
+[integration review and follow-up](dynamic-integration-review.md) for the original
+discrepancies and their resolution. Compiled JPAMB validation now passes for the
+supported subset: 301 selected tests, 115 interpreter cases, and 118 completed
+security executions agreeing with the JVM. Three recursive executions remain
+unsupported. Versioned user-facing campaign reports and CLI replay are now
+implemented in `fuzz_reports.py` and `fuzz_cli.py`, with concrete/hypothetical
+provenance and program snapshots. Controlled strategy comparisons and a separate
+challenge extension are implemented; see [the baseline evaluation](fuzzing-evaluation.md)
+and [the challenge overview](fuzzing-challenge-study.md).
 
 ## Purpose and scope
 
@@ -218,9 +230,10 @@ select examples solely because they favour coverage guidance.
 
 ## Evaluation
 
-Compare ordinary random testing, constant/small-value random testing, and
-coverage-guided mutation. Include an unguided mutation variant using the same
-initial seeds and mutation operators to isolate the contribution of coverage.
+The implemented initial comparison uses constant/small-value dictionary random
+testing, unguided mutation, and coverage-guided mutation. The two mutation
+strategies share initial seeds and mutation operators to isolate coverage-based
+retention. Pure full-range random testing can be added as a separate baseline.
 Run every strategy through the same concrete runner and confidentiality policy.
 
 Predeclare budgets and use multiple recorded random seeds. Charge initial seeds
@@ -247,7 +260,7 @@ Proposed modules under `solutions/dynamic/src/`:
 | `fuzz_contract.py` | Small result/diagnostic types and runner interface |
 | `fuzz_inputs.py` | Typed seeds, dictionary extraction, mutation |
 | `coverage_fuzz.py` | Corpus, coverage feedback, campaigns, findings, replay |
-| `fuzz_runner.py` | Adapter to the teammate's concrete confidentiality engine |
+| `dynamic.make_runner` | Concrete confidentiality adapter with shared policy initialization and tested integration |
 
 Keep the public imports usable under the existing dynamic project's packaging.
 Add dedicated fuzzing commands in `solutions/dynamic/pyproject.toml` without
@@ -258,16 +271,24 @@ Delivery order:
 
 1. Agree on the security and runner contracts. Implement the independent result
    types, typed inputs, corpus, campaign logic, and controlled-runner tests.
-2. Connect the teammate's interpreter through the adapter. Check the examples
-   above before measuring search performance. Share fixed-local/return-default
-   settings with the static analysis.
-3. Add replay, the detailed report, and JPAMB prediction integration.
-4. Run the baseline comparisons and document benefits and limits. Add optional
-   minimization or richer feedback only after the comparison works.
+2. Completed: align `dynamic.make_runner` and the Python
+   monitor with the confidentiality rules, share fixed-local/return-default
+   settings, add real-runner/fuzzer regression tests, and validate the generated
+   Java examples through JPAMB. Recursion remains outside the supported subset.
+3. Completed: saved campaign reports, exact-input CLI replay, and opt-in export
+   from existing dynamic/hybrid JPAMB commands. See the dynamic README for usage.
+4. Implemented: `evaluate_fuzz.py` runs the three strategies through the same
+   loop and runner, saving replayable per-trial reports and aggregate CSV/JSON.
+   Checked-in manifests cover an eight-method pilot and the 68 validated
+   non-recursive methods. See [evaluation methodology and results](fuzzing-evaluation.md).
+   Add optional minimization or richer feedback only after assessing this comparison.
 
-The current checkout lacks generated `target/classes` and `target/decompiled`
-artifacts. Synthetic Python fixtures can support step 1. Real benchmark
-integration requires the normal JPAMB compile/decompile setup first.
+The current checkout has generated `target/classes` and `target/decompiled`
+artifacts from the Docker compile/decompile build. New checkouts still need that
+build before compiled benchmark tests can run. Validation outputs are in the
+ignored `reports/benchmark-validation-20261121/` directory; they are validation
+artifacts, separate from the general-purpose `coverage-fuzz run` and
+`coverage-fuzz replay` commands now available.
 
 ## References
 

@@ -189,7 +189,9 @@ suite, eff = jpamb.setup()
 policy = suite.security_policy(methodid.classname, eff=eff)
 bc = jpamb.Bytecode(suite, eff, {})
 result = analyze(
-    bc, methodid, policy,
+    bc,
+    methodid,
+    policy,
     Config(return_clearance="Public", local_clearances={2: "Public"}),
 )
 print(result.status, result.return_label)

@@ -125,3 +125,14 @@ class InputSpace:
                 changed = signed_int(changed + 1)
             values[index] = Int(changed)
         return Input(tuple(values))
+
+    def sample(self, rand: random.Random) -> Input:
+        """Independently sample each argument from the executable dictionary."""
+        return Input(
+            tuple(
+                Boolean(bool(rand.getrandbits(1)))
+                if isinstance(parameter, jvm.Boolean)
+                else Int(rand.choice(self.dictionary))
+                for parameter in self.parameters
+            )
+        )

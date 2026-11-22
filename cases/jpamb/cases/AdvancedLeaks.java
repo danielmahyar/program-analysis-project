@@ -96,6 +96,7 @@ public class AdvancedLeaks {
 
   // 7. Do-while loop implicit leak: condition at end of loop taints subsequent iterations.
   @Case("(3) -> assertion error")
+  @Case("(0) -> ok")
   @Tag({IMPLICIT_FLOW, LOOP, CALL})
   public static void doWhileLeak(@Sec(conf = "High") int secret) {
     int count = 0;

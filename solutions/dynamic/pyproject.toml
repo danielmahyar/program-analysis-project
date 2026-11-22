@@ -16,6 +16,9 @@ dependencies = [
 [project.scripts]
 dynamic-interpreter = "dynamic:interpret"
 dynamic-analysis = "dynamic:analyse"
+coverage-fuzz = "fuzz_cli:main"
+coverage-fuzz-evaluate = "evaluate_fuzz:main"
+coverage-fuzz-study = "fuzz_study:main"
 
 [tool.uv.sources]
 jpamb = { path = "../../", editable = true }
