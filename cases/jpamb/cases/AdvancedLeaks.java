@@ -291,4 +291,70 @@ public class AdvancedLeaks {
     }
     recursiveSafe(steps - 1, secret);
   }
+
+  // ---------------------------------------------------------------------------
+  // Novel Datatypes: Strings (concatenation, .length(), .equals()) & Arrays
+  // (monolithic array labeling and index tainting)
+  // ---------------------------------------------------------------------------
+
+  // 17. String concatenation (`s1 + s2`) and `.length()` propagate L(s1) ∪ L(s2) ∪ pc:
+  // Combining Mid and High strings produces a High string, whose length cannot flow to Mid.
+  @Case("(s'secret', s'dept') -> assertion error")
+  @Tag({EXPLICIT_FLOW, CALL})
+  public static void stringConcatLengthLeak(
+      @Sec(conf = "High") String secretTag, @Sec(conf = "Mid") String midPrefix) {
+    String msg = midPrefix + ":" + secretTag;
+    int len = msg.length();
+    publishMid(len);
+  }
+
+  // 18. Safe String branching and concatenation: branches on `dept.equals("Oncology")` (Mid)
+  // and publishes to a Mid sink, while sending High string length only to a High sink.
+  @Case("(s'Oncology', s'classified') -> ok")
+  @Case("(s'Public', s'classified') -> ok")
+  @Tag({CONDITIONAL, CALL})
+  public static void stringBranchAndConcatSafe(
+      @Sec(conf = "Mid") String dept, @Sec(conf = "High") String secretNote) {
+    int out = 0;
+    if (dept.equals("Oncology")) {
+      String tag = "Reviewed:" + dept;
+      out = tag.length();
+    }
+    publishMid(out);
+    publishHigh(secretNote.length());
+  }
+
+  // 19. Array write with secret index on a fixed Low array parameter (`notes[secretIdx] = "Reviewed"`):
+  // L(notes') = L(notes) ∪ L("Reviewed") ∪ L(secretIdx) ∪ pc = High ⊈ Low.
+  @Case("(1) -> assertion error")
+  @Tag({EXPLICIT_FLOW, ARRAY, CALL})
+  public static void arraySecretIndexParameterLeak(
+      @Sec(conf = "Low") String[] notes, @Sec(conf = "High") int secretIdx) {
+    notes[secretIdx] = "Reviewed";
+    publishLow(notes[0].length());
+  }
+
+  // 20. Monolithic array read tainting: `x = arr[i]` folds L(arr) ∪ L(i) ∪ pc.
+  // Even though `table` only holds Mid data, indexing it with a High index produces a High value.
+  @Case("(10, 1) -> assertion error")
+  @Tag({EXPLICIT_FLOW, ARRAY, CALL})
+  public static void arrayMonolithicReadLeak(
+      @Sec(conf = "Mid") int midVal, @Sec(conf = "High") int secretIdx) {
+    int[] table = {10, 20, 30, 40};
+    table[0] = midVal;
+    int x = table[secretIdx];
+    publishMid(x);
+  }
+
+  // 21. Safe monolithic array read/write: `table` receives Mid data at a Low index
+  // and is read at a Low index, so `table[openIdx]` has label Mid and flows safely to `publishMid`.
+  @Case("(10, 1) -> ok")
+  @Tag({ARRAY, CALL})
+  public static void arrayMonolithicSafe(
+      @Sec(conf = "Mid") int midVal, @Sec(conf = "Low") int openIdx) {
+    int[] table = {10, 20, 30, 40};
+    table[0] = midVal;
+    int x = table[openIdx];
+    publishMid(x);
+  }
 }

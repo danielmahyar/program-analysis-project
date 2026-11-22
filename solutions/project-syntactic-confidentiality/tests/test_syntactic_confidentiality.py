@@ -180,3 +180,74 @@ def test_improvement_4_constant_propagation_prunes_dead_branches():
         {"onco": ONCO},
     )
     assert leaks == []
+
+
+def test_novel_datatype_strings():
+    # 1. String literal has label ∅; concatenation s1 + s2 propagates L(s1) ∪ L(s2) ∪ pc
+    env, leaks = analyse(
+        'String rev = "Reviewed"; String msg = patientDept + ": " + rev; int n = msg.length(); publicDashboard(n);',
+        {"patientDept": ONCO},
+    )
+    assert env["rev"] == frozenset()
+    assert env["msg"] == ONCO
+    assert env["n"] == ONCO
+    assert len(leaks) == 1
+    assert "publicDashboard(n)" in leaks[0]
+
+    # 2. Branching on `if (patientDept.equals("Oncology"))` raises pc to L(patientDept)
+    env, leaks = analyse(
+        'int out = 0; if (patientDept.equals("Oncology")) { out = 1; } publicDashboard(out);',
+        {"patientDept": ONCO},
+    )
+    assert env["out"] == ONCO
+    assert len(leaks) == 1
+
+
+def test_novel_datatype_arrays_monolithic_and_index_tainting():
+    # 1. Report motivating example: `notes[psych] = "Reviewed"` where `notes` is a fixed Public parameter (∅)
+    #    and `psych` is {Psych}: L(notes) ∪ L("Reviewed") ∪ L(psych) ∪ pc = {Psych} ⊈ ∅ -> immediate violation!
+    env, leaks = analyse(
+        'notes[psych] = "Reviewed";',
+        {"notes": frozenset(), "psych": PSYCH},
+    )
+    assert env["notes"] == frozenset()  # fixed parameter keeps its fixed label
+    assert len(leaks) == 1
+    assert 'notes[psych] = "Reviewed"' in leaks[0]
+
+    # 2. Local array write `arr[i] = x` updates monolithic label L(arr') = L(arr) ∪ L(x) ∪ L(i) ∪ pc
+    env, leaks = analyse(
+        "int[] arr = new int[4]; arr[psych] = 0; int v = arr[0]; oncologyRecords(v);",
+        {"psych": PSYCH},
+    )
+    assert env["arr"] == PSYCH
+    assert env["v"] == PSYCH
+    assert len(leaks) == 1  # Psych cannot flow to Oncology sink
+
+    # 3. Array read `x = arr[i]` folds L(arr) ∪ L(i) ∪ pc
+    env, leaks = analyse(
+        "int[] pubArr = new int[4]; int x = pubArr[onco]; publicDashboard(x);",
+        {"onco": ONCO},
+    )
+    assert env["x"] == ONCO
+    assert len(leaks) == 1
+
+
+def test_basic_and_advanced_leaks_strings_and_arrays():
+    # BasicLeaks: Strings
+    assert run("jpamb.cases.BasicLeaks.stringEqualsImplicitLeak:(Ljava/lang/String;)V")["assertion error"] == "90%"
+    assert run("jpamb.cases.BasicLeaks.stringEqualsSafe:(Ljava/lang/String;)V")["assertion error"] == "10%"
+
+    # BasicLeaks: Arrays (monolithic index tainting)
+    assert run("jpamb.cases.BasicLeaks.arrayIndexWriteLeak:(I)V")["assertion error"] == "90%"
+    assert run("jpamb.cases.BasicLeaks.arrayIndexWriteSafe:(I)V")["assertion error"] == "10%"
+
+    # AdvancedLeaks: Strings (concatenation + .length() + .equals())
+    assert run("jpamb.cases.AdvancedLeaks.stringConcatLengthLeak:(Ljava/lang/String;Ljava/lang/String;)V")["assertion error"] == "90%"
+    assert run("jpamb.cases.AdvancedLeaks.stringBranchAndConcatSafe:(Ljava/lang/String;Ljava/lang/String;)V")["assertion error"] == "10%"
+
+    # AdvancedLeaks: Arrays (parameter index tainting & monolithic read/write)
+    assert run("jpamb.cases.AdvancedLeaks.arraySecretIndexParameterLeak:([Ljava/lang/String;I)V")["assertion error"] == "90%"
+    assert run("jpamb.cases.AdvancedLeaks.arrayMonolithicReadLeak:(II)V")["assertion error"] == "90%"
+    assert run("jpamb.cases.AdvancedLeaks.arrayMonolithicSafe:(II)V")["assertion error"] == "10%"
+
+

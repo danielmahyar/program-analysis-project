@@ -9,6 +9,9 @@ for every variable with the rules in `jpamb.flow_rules` (docs/flow-rules.md):
     a op b           rules.binary(la, lb)          L(a) ∪ L(b)
     !a, -a           rules.unary(la)               L(a)
     c ? a : b        enter_branch(pc, lc) on a, b  L(c) ∪ L(a) ∪ L(b)
+    s.m(a1..ak)      receiver + args               L(s) ∪ L(a1) ∪ ... ∪ L(ak)
+    arr[i]           monolithic read               L(arr) ∪ L(i) ∪ pc
+    arr[i] = x       monolithic write + index      L(arr) ∪ L(x) ∪ L(i) ∪ pc
     local = e        rules.assign(le, pc)          L(e) ∪ pc  (inferred, strong update)
     param = e        rules.certify(le, pc, fixed)  L(e) ∪ pc ⊆ L_fixed, label stays fixed
     sink(e), return  rules.certify(le, pc, fixed)  L(e) ∪ pc ⊆ clearance, else a leak
@@ -21,6 +24,7 @@ Includes:
 3. Interprocedural helper method AST walking for non-sink helper calls in the same class.
 4. Constant propagation & dead-branch pruning (`const_env`) to statically eliminate unreachable branch false positives (`deadBranchLeak`).
 5. Calibrated predictions for all JPAMB queries (`assertion error`, `ok`, `*`, etc.).
+6. Novel datatypes (`java.lang.String` and Java arrays `int[]`, `String[]`) via immutable string receiver/concatenation propagation and monolithic array labeling with index tainting.
 
 Leaks are printed on stderr; stdout is the answer jpamb reads.
 """
@@ -40,7 +44,7 @@ from jpamb.security import ClassSecurityPolicy, MethodSecurityPolicy
 JAVA = tree_sitter.Language(tree_sitter_java.language())
 
 Env = dict[str, Label]  # variable name -> its label
-ConstVal = int | bool | None
+ConstVal = int | bool | str | None
 ConstEnv = dict[str, ConstVal]  # variable name -> known constant value (or None)
 
 LITERALS = {
@@ -121,6 +125,11 @@ class Analysis:
                 return True
             case "false":
                 return False
+            case "string_literal":
+                raw = text(node)
+                if len(raw) >= 2 and raw[0] == '"' and raw[-1] == '"':
+                    return raw[1:-1]
+                return None
             case (
                 "decimal_integer_literal"
                 | "hex_integer_literal"
@@ -136,6 +145,25 @@ class Analysis:
                 return cenv.get(text(node))
             case "parenthesized_expression" if node.named_children:
                 return self.eval_const(node.named_children[0], cenv)
+            case "method_invocation":
+                obj_val = self.eval_const(node.child_by_field_name("object"), cenv)
+                mname = text(node.child_by_field_name("name"))
+                args_node = node.child_by_field_name("arguments")
+                args = args_node.named_children if args_node is not None else []
+                if isinstance(obj_val, str):
+                    if mname == "length" and len(args) == 0:
+                        return len(obj_val)
+                    if mname == "isEmpty" and len(args) == 0:
+                        return len(obj_val) == 0
+                    if mname == "equals" and len(args) == 1:
+                        arg_val = self.eval_const(args[0], cenv)
+                        if isinstance(arg_val, str):
+                            return obj_val == arg_val
+                    if mname == "concat" and len(args) == 1:
+                        arg_val = self.eval_const(args[0], cenv)
+                        if isinstance(arg_val, str):
+                            return obj_val + arg_val
+                return None
             case "unary_expression":
                 op_val = self.eval_const(node.child_by_field_name("operand"), cenv)
                 if op_val is None:
@@ -195,6 +223,16 @@ class Analysis:
                             return left != right
                         case "==":
                             return left == right
+                if isinstance(left, str) or isinstance(right, str):
+                    if op == "+":
+                        l_str = ("true" if left else "false") if isinstance(left, bool) else str(left)
+                        r_str = ("true" if right else "false") if isinstance(right, bool) else str(right)
+                        return l_str + r_str
+                    if isinstance(left, str) and isinstance(right, str):
+                        if op == "==":
+                            return left == right
+                        if op == "!=":
+                            return left != right
                 return None
             case _:
                 return None
@@ -240,9 +278,16 @@ class Analysis:
                 finally:
                     self._cond_depth -= 1
                 return rules.binary(cond_label, rules.binary(t_lbl, e_lbl))
-            case "method_invocation":  # f(a, b)
+            case "method_invocation":  # f(a, b) or s.equals(other), s.length()
                 return self.call(node, env, pc)
-            case _:  # anything else: the union of its parts
+            case "array_access":  # arr[i]: L(arr) ∪ L(i) ∪ pc (monolithic array read)
+                arr_lbl = self.expr(node.child_by_field_name("array"), env, pc)
+                idx_lbl = self.expr(node.child_by_field_name("index"), env, pc)
+                return rules.assign(rules.binary(arr_lbl, idx_lbl), pc)
+            case "field_access":  # arr.length: inherits receiver array/object label
+                obj_node = node.child_by_field_name("object")
+                return self.expr(obj_node, env, pc) if obj_node is not None else rules.constant()
+            case _:  # anything else (e.g., array_creation_expression, array_initializer): union of parts
                 label = rules.constant()
                 for child in node.named_children:
                     label = rules.binary(label, self.expr(child, env, pc))
@@ -337,6 +382,10 @@ class Analysis:
             self.const_env = saved_consts
 
     def call(self, node: tree_sitter.Node, env: Env, pc: Label) -> Label:
+        obj_node = node.child_by_field_name("object")
+        obj_label = (
+            self.expr(obj_node, env, pc) if obj_node is not None else rules.constant()
+        )
         args_node = node.child_by_field_name("arguments")
         args = args_node.named_children if args_node is not None else []
         labels = [self.expr(a, env, pc) for a in args]
@@ -360,22 +409,26 @@ class Analysis:
                             helper_node, callee, labels, arg_consts, pc
                         )
                         return rules.binary(
-                            ret_lbl,
-                            rules.assign(
-                                rules.binary(
-                                    rules.constant(),
-                                    frozenset().union(*labels)
-                                    if labels
-                                    else rules.PUBLIC,
+                            obj_label,
+                            rules.binary(
+                                ret_lbl,
+                                rules.assign(
+                                    rules.binary(
+                                        rules.constant(),
+                                        frozenset().union(*labels)
+                                        if labels
+                                        else rules.PUBLIC,
+                                    ),
+                                    rules.PUBLIC,
                                 ),
-                                rules.PUBLIC,
                             ),
                         )
                     finally:
                         self._active_helpers.discard(key)
 
-        # The result of a call depends on all its arguments.
-        result = rules.constant()
+        # The result of a call depends on the receiver object (e.g. `s.equals(other)`, `s.length()`)
+        # and all its arguments.
+        result = obj_label
         for label in labels:
             result = rules.binary(result, label)
         return result
@@ -439,15 +492,33 @@ class Analysis:
             return True
         return any(self._has_return_or_throw(c) for c in node.named_children)
 
+    def _unwrap_array_target(
+        self, lhs: tree_sitter.Node, env: Env, pc: Label
+    ) -> tuple[str, Label]:
+        """Unwrap `arr[i]` (or `arr[i][j]`) into `(base_array_name, L(i1) ∪ L(i2) ...)`."""
+        idx_label = rules.constant()
+        curr: tree_sitter.Node | None = lhs
+        while curr is not None and curr.type == "array_access":
+            idx_node = curr.child_by_field_name("index")
+            idx_label = rules.binary(idx_label, self.expr(idx_node, env, pc))
+            curr = curr.child_by_field_name("array")
+        return text(curr), idx_label
+
     def _invalidate_assigned_consts(self, node: tree_sitter.Node | None):
         """Clear constant values for any variable modified inside a loop body."""
         if node is None:
             return
         if node.type == "assignment_expression":
-            name = text(node.child_by_field_name("left"))
+            lhs = node.child_by_field_name("left")
+            while lhs is not None and lhs.type == "array_access":
+                lhs = lhs.child_by_field_name("array")
+            name = text(lhs)
             self.const_env = {**self.const_env, name: None}
         elif node.type == "update_expression" and node.named_children:
-            name = text(node.named_children[0])
+            target = node.named_children[0]
+            while target is not None and target.type == "array_access":
+                target = target.child_by_field_name("array")
+            name = text(target)
             self.const_env = {**self.const_env, name: None}
         elif node.type == "local_variable_declaration":
             for decl in node.children_by_field_name("declarator"):
@@ -666,11 +737,20 @@ class Analysis:
                 return env, pc
 
     def _expr_stmt(self, e: tree_sitter.Node, env: Env, pc: Label) -> Env:
-        if e.type == "assignment_expression":  # x = e;  x += e;
-            name = text(e.child_by_field_name("left"))
+        if e.type == "assignment_expression":  # x = e;  x += e;  arr[i] = x;
+            lhs = e.child_by_field_name("left")
             rhs = e.child_by_field_name("right")
             op = text(e.child_by_field_name("operator"))
             label = self.expr(rhs, env, pc)
+            if lhs is not None and lhs.type == "array_access":
+                # Monolithic array write with index tainting:
+                # L(arr') = L(arr) ∪ L(x) ∪ L(i) ∪ pc
+                arr_name, idx_label = self._unwrap_array_target(lhs, env, pc)
+                arr_label = env.get(arr_name, rules.PUBLIC)
+                combined = rules.binary(arr_label, rules.binary(label, idx_label))
+                return self.write(e, arr_name, combined, env, pc, None)
+
+            name = text(lhs)
             cval = self.eval_const(rhs)
             if op != "=":
                 label = rules.binary(env.get(name, rules.PUBLIC), label)
@@ -685,11 +765,19 @@ class Analysis:
                             cval = old_c * cval
                         case _:
                             cval = None
+                elif isinstance(old_c, str) and isinstance(cval, str) and op == "+=":
+                    cval = old_c + cval
                 else:
                     cval = None
             return self.write(e, name, label, env, pc, cval)
-        if e.type == "update_expression":  # x++;  is  x = x + 1;
-            name = text(e.named_children[0])
+        if e.type == "update_expression":  # x++; or arr[i]++;
+            target = e.named_children[0]
+            if target.type == "array_access":
+                arr_name, idx_label = self._unwrap_array_target(target, env, pc)
+                arr_label = env.get(arr_name, rules.PUBLIC)
+                combined = rules.binary(arr_label, idx_label)
+                return self.write(e, arr_name, combined, env, pc, None)
+            name = text(target)
             label = rules.binary(env.get(name, rules.PUBLIC), rules.constant())
             old_c = self.const_env.get(name)
             cval: ConstVal = None
@@ -724,6 +812,62 @@ def predict_queries(analysis: Analysis) -> dict[str, str]:
     return preds
 
 
+def _extract_sec_annotation(
+    node: tree_sitter.Node | None, policy: ClassSecurityPolicy
+) -> jpamb.security.SecurityLabel | None:
+    """Extract `@Sec(conf = "...")` from a parameter or method declaration AST node."""
+    if node is None:
+        return None
+    q = tree_sitter.Query(JAVA, "(annotation) @ann")
+    for ann in tree_sitter.QueryCursor(q).captures(node).get("ann", []):
+        name_node = ann.child_by_field_name("name")
+        if text(name_node).endswith("Sec"):
+            args_node = ann.child_by_field_name("arguments")
+            pairs: dict[str, str] = {}
+            if args_node is not None:
+                for pair in args_node.named_children:
+                    if pair.type == "element_value_pair":
+                        k = text(pair.child_by_field_name("key"))
+                        v = text(pair.child_by_field_name("value")).strip('"')
+                        if k in policy.product_lattice.lattices:
+                            pairs[k] = v
+            return policy.product_lattice.make_label(pairs)
+    return None
+
+
+def _method_policy_from_ast(
+    policy: ClassSecurityPolicy,
+    methodid: jvm.AbsMethodID,
+    node: tree_sitter.Node,
+) -> MethodSecurityPolicy:
+    """Fallback builder for `MethodSecurityPolicy` directly from the Java AST
+    when a newly added source method has not yet been decompiled by `jpamb build`."""
+    p_node = node.child_by_field_name("parameters")
+    params = p_node.named_children if p_node is not None else []
+    param_labels = []
+    param_constraints = []
+    for p in params:
+        sec_lbl = _extract_sec_annotation(p, policy)
+        param_constraints.append(sec_lbl)
+        param_labels.append(
+            sec_lbl if sec_lbl is not None else policy.product_lattice.default_label
+        )
+    mod_node = next(
+        (c for c in node.named_children if c.type == "modifiers"), None
+    )
+    return_clearance = _extract_sec_annotation(mod_node, policy)
+    return MethodSecurityPolicy(
+        name=methodid.extension.name,
+        signature=methodid.extension.encode(),
+        param_labels=tuple(param_labels),
+        return_clearance=return_clearance,
+        is_static=True,
+        is_sink=False,
+        param_slots=tuple(range(len(params))),
+        param_constraints=tuple(param_constraints),
+    )
+
+
 def main():
     methodid = jpamb.getmethodid(
         "project-syntactic-confidentiality",
@@ -737,7 +881,6 @@ def main():
     # The policy jpamb read from the @Lattice / @Sec annotations.
     policy = suite.security_policy(methodid.classname, eff=eff)
     assert policy is not None, "only the security cases (classes with @Lattice)"
-    method = policy.method(methodid)
 
     # The AST of the case method.
     source = suite.sourcefile(methodid.classname).read_bytes()
@@ -757,6 +900,11 @@ def main():
         if len(params) == len(methodid.extension.params):
             node = candidate
             break
+
+    try:
+        method = policy.method(methodid)
+    except KeyError:
+        method = _method_policy_from_ast(policy, methodid, node)
 
     # Parameters have the fixed @Sec set (∅ without one), the pc starts at ∅.
     analysis = Analysis(policy, method, tree_root=tree.root_node)
