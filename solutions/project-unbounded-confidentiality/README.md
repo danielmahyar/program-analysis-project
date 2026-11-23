@@ -41,20 +41,27 @@ The [project command](src/unbounded_analysis.py) runs its own
 JPAMB supplies the bytecode and security policy. The `static-analysis` command
 in `solutions/static` uses the [original interpreter](../../src/jpamb/confidentiality.py).
 
-The project interpreter builds a CFG from the method's bytecode. At each conditional, it
-explores both the taken edge and the fallthrough edge. A return leads to the
-virtual exit. Starting at instruction zero, the interpreter keeps an abstract
-state for each reachable instruction. A state records labels for the operand
-stack, local variables, and active branch conditions. A store inside a secret-controlled branch
-inherits that condition's label. Post-dominators identify where a branch
-stops controlling execution.
+The interpreter builds a control-flow graph and keeps an abstract state at
+each reachable instruction. Each local and stack value carries confidentiality
+labels and a signed JVM integer interval. A conditional follows each edge whose
+comparison admits a value in the incoming ranges. On each feasible edge it
+narrows the ranges of the compared locals. Assignments under a secret guard
+inherit its label, even if arithmetic determines the numeric result exactly.
+Post-dominators identify where the guard stops controlling execution.
 
-When paths meet, the interpreter joins their states. If that changes a
-successor's state, a worklist schedules the successor again. A loop back edge
-can therefore expose a flow that first becomes possible on a later iteration.
-By default, analysis finishes when the worklist is empty. Each instruction
-has finitely many local variables, operand stack slots and controlling branches.
-Their labels can rise only finitely many times in the configured lattice.
+At ordinary merges, the analyser joins labels and takes the interval hull.
+On a depth-first search back edge, it widens growing interval endpoints to
+the nearest enclosing threshold, or to infinity when no threshold remains.
+Thresholds come from the method's integer constants, increment amounts and
+zero. For example, widening `[0, 0]` with `[0, 1]` using thresholds
+`{0, 10}` gives `[0, 10]`. Unbounded endpoints still denote JVM int values.
+The arithmetic rules account for 32-bit wraparound.
+
+The worklist revisits an instruction only on first arrival or when its stored
+state grows. Every reachable cycle contains a DFS back edge. Widening on each
+such edge can expand a stored bound only finitely often, and labels range over
+a finite lattice. The remaining edges form a DAG, so their ordinary joins also
+stabilise. See the [DTU course notes on widening](https://courses.compute.dtu.dk/02242/topics/unbounded-static-analysis.html).
 
 ## Branch and loop cases
 
@@ -62,8 +69,8 @@ Their labels can rise only finitely many times in the configured lattice.
 | --- | --- | --- |
 | `implicitIf` | Possible leak | A secret determines the value passed to a public sink. |
 | `implicitIfSafe` | Safe | The branch condition and the published value are public. |
-| `skippedLoop` | Possible leak (false positive) | The analyser visits the edge to `publish(secret)`. At runtime, `mode` starts at zero and the loop body never runs. |
-| `leakAfterBackEdge` | Possible leak | The analyser follows the branch to the sink on its first visit. In a concrete run, the sink can first execute on the second iteration. |
+| `skippedLoop` | Safe | `mode` is exactly zero at the guard, so the body containing `publish(secret)` is unreachable. |
+| `leakAfterBackEdge` | Possible leak | Initially `phase` is zero. The back edge brings `phase = 1` to the header and makes the branch to `publish(secret)` feasible. |
 
 The last verdict covers all inputs. A concrete call with `count = 1` returns
 safely, while `count = 2` reaches the sink. Unsupported effects such as

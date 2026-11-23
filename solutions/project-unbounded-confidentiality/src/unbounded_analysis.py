@@ -20,7 +20,7 @@ def analyse() -> None:
         jpamb.printinfo(
             "project-unbounded-confidentiality",
             "0.1.0",
-            "The Rice Theorem Cookers",
+            "loop cancelled",
             ["static", "python"],
             for_science=True,
         )

@@ -1,8 +1,7 @@
 """Intraprocedural, termination-insensitive confidentiality for JVM int/boolean code.
 
-This domain tracks dependencies, never numeric values. Both conditional successors
-are explored. Unsupported effects make the result unknown, even when another path
-has returned normally. See docs/security.md for the boundary and threat model.
+Integer intervals filter infeasible CFG edges. Widening on loop back edges lets
+the worklist converge without unrolling the loop a fixed number of times.
 """
 
 from __future__ import annotations
@@ -16,6 +15,9 @@ import jvm
 import sexpr
 from jpamb.security import ClassSecurityPolicy, SecurityLattice
 from jvm.state import PC
+
+from .interval import INT_MAX, INT_MIN, Interval
+from .interval_branches import NEGATED_CONDITION, refine_comparison
 
 if TYPE_CHECKING:
     from jpamb import Bytecode
@@ -42,18 +44,33 @@ class Config:
 class Value(sexpr.AsSExpr):
     data: str
     control: str
+    interval: Interval = field(default_factory=Interval.top)
+    # A stack value may still be equal to the current contents of a local slot.
+    source_slot: int | None = None
 
     def label(self, lattice: SecurityLattice) -> str:
         return lattice.join(self.data, self.control)
 
-    def join(self, other: Value, lattice: SecurityLattice) -> Value:
+    def join(
+        self,
+        other: Value,
+        lattice: SecurityLattice,
+        widening_thresholds: tuple[int, ...] | None = None,
+    ) -> Value:
+        interval = (
+            self.interval.join(other.interval)
+            if widening_thresholds is None
+            else self.interval.widen(other.interval, widening_thresholds)
+        )
         return Value(
             lattice.join(self.data, other.data),
             lattice.join(self.control, other.control),
+            interval,
+            self.source_slot if self.source_slot == other.source_slot else None,
         )
 
     def under(self, pc: str, lattice: SecurityLattice) -> Value:
-        return Value(self.data, lattice.join(self.control, pc))
+        return replace(self, control=lattice.join(self.control, pc))
 
 
 @dataclass(frozen=True)
@@ -67,7 +84,12 @@ class State(sexpr.AsSExpr):
     def pc(self, lattice: SecurityLattice) -> str:
         return lattice.join_all(label for _, label in self.context)
 
-    def join(self, other: State, lattice: SecurityLattice) -> State:
+    def join(
+        self,
+        other: State,
+        lattice: SecurityLattice,
+        widening_thresholds: tuple[int, ...] | None = None,
+    ) -> State:
         if len(self.locals) != len(other.locals) or len(self.stack) != len(other.stack):
             raise UnsupportedInstruction(
                 "incompatible local/operand-stack shapes at merge"
@@ -77,10 +99,15 @@ class State(sexpr.AsSExpr):
             context[branch] = lattice.join(context.get(branch, lattice.bot), label)
         return State(
             tuple(
-                a.join(b, lattice) if a is not None and b is not None else None
+                a.join(b, lattice, widening_thresholds)
+                if a is not None and b is not None
+                else None
                 for a, b in zip(self.locals, other.locals)
             ),
-            tuple(a.join(b, lattice) for a, b in zip(self.stack, other.stack)),
+            tuple(
+                a.join(b, lattice, widening_thresholds)
+                for a, b in zip(self.stack, other.stack)
+            ),
             tuple(sorted(context.items())),
         )
 
@@ -107,8 +134,32 @@ class State(sexpr.AsSExpr):
 
     def store(self, slot: int, value: Value) -> State:
         self.check_slot(slot)
+        # An older load can still be on the JVM stack after a store or iinc.
+        stack = tuple(
+            replace(v, source_slot=None) if v.source_slot == slot else v
+            for v in self.stack
+        )
         return replace(
-            self, locals=self.locals[:slot] + (value,) + self.locals[slot + 1 :]
+            self,
+            locals=self.locals[:slot]
+            + (replace(value, source_slot=None),)
+            + self.locals[slot + 1 :],
+            stack=stack,
+        )
+
+    def refine_local(self, slot: int | None, interval: Interval) -> State:
+        if slot is None:
+            return self
+        local = replace(self.load(slot), interval=interval)
+        # Narrow surviving copies of the same value, without performing a store.
+        stack = tuple(
+            replace(v, interval=interval) if v.source_slot == slot else v
+            for v in self.stack
+        )
+        return replace(
+            self,
+            locals=self.locals[:slot] + (local,) + self.locals[slot + 1 :],
+            stack=stack,
         )
 
 
@@ -198,6 +249,27 @@ def postdominators(
     return tuple(frozenset(nodes) for nodes in result)
 
 
+def back_edges(successors: tuple[tuple[int, ...], ...]) -> set[tuple[int, int]]:
+    """DFS edges to active ancestors. Removing these edges breaks every reachable cycle."""
+    edges = set()
+    seen = {0}
+    active = {0}
+    path = [(0, iter(successors[0]))]
+    while path:
+        source, outgoing = path[-1]
+        target = next(outgoing, None)
+        if target is None:
+            path.pop()
+            active.remove(source)
+        elif target in active:
+            edges.add((source, target))
+        elif target < len(successors) and target not in seen:
+            seen.add(target)
+            active.add(target)
+            path.append((target, iter(successors[target])))
+    return edges
+
+
 @dataclass
 class AbstractInterpreter:
     bc: Bytecode
@@ -208,6 +280,8 @@ class AbstractInterpreter:
     local_clearances: dict[int, str]
     return_clearance: str
     successors: tuple[tuple[int, ...], ...]
+    back_edges: set[tuple[int, int]]
+    thresholds: tuple[int, ...]
     postdom: tuple[frozenset[int], ...]
     worklist: deque[PC]
     states: dict[PC, State]
@@ -249,12 +323,14 @@ class AbstractInterpreter:
             method.max_locals,
             uninitialized=True,
         )
-        state = State(
-            tuple(
-                Value(label["conf"], lattice.bot) if label is not None else None
-                for label in initial
+        locals_: list[Value | None] = [None] * method.max_locals
+        for slot, type_ in zip(slots, methodid.extension.params, strict=True):
+            descriptor = type_.encode()
+            interval = (
+                Interval(0, 1) if descriptor == "Z" else Interval.top().cast(descriptor)
             )
-        )
+            locals_[slot] = Value(initial[slot]["conf"], lattice.bot, interval)
+        state = State(tuple(locals_))
         # Every parameter has a fixed label: its @Sec, or else the class's
         # input default (Public in every case class). Writes are certified.
         constraints = declared.param_constraints or (None,) * len(slots)
@@ -285,6 +361,12 @@ class AbstractInterpreter:
         )
         lattice.require(clearance)
         successors = control_flow(method.opcodes)
+        thresholds = {0}
+        for op in method.opcodes:
+            if isinstance(op, jvm.Push) and isinstance(op.value, int):
+                thresholds.add(op.value)
+            elif isinstance(op, jvm.Incr):
+                thresholds.add(op.amount)
         pc = PC(methodid, 0)
         return cls(
             bc=bc,
@@ -295,6 +377,8 @@ class AbstractInterpreter:
             local_clearances=clearances,
             return_clearance=clearance,
             successors=successors,
+            back_edges=back_edges(successors),
+            thresholds=tuple(sorted(n for n in thresholds if INT_MIN <= n <= INT_MAX)),
             postdom=postdominators(successors),
             worklist=deque([pc]),
             states={pc: state},
@@ -345,9 +429,49 @@ class AbstractInterpreter:
             # never inferred, so the slot keeps it whether or not the check holds.
             fixed = self.local_clearances[slot]
             self.check_flow(pc, value, state.pc(self.lattice), fixed, f"local {slot}")
-            return state.store(slot, Value(fixed, self.lattice.bot))
+            return state.store(slot, Value(fixed, self.lattice.bot, value.interval))
         # Unannotated locals infer their label: strong update L(e) ∪ pc.
         return state.store(slot, value)
+
+    def branch(
+        self, pc: PC, state: State, op: jvm.If | jvm.Ifz
+    ) -> list[tuple[PC, State]]:
+        operands, after = state.pop(2 if isinstance(op, jvm.If) else 1)
+        left = operands[0]
+        right = (
+            operands[1]
+            if len(operands) == 2
+            else Value(self.lattice.bot, self.lattice.bot, Interval.constant(0))
+        )
+        guard = self.lattice.join_all(
+            (
+                state.pc(self.lattice),
+                left.label(self.lattice),
+                right.label(self.lattice),
+            )
+        )
+        controls = dict(after.context)
+        controls[pc.offset] = guard
+        after = replace(after, context=tuple(sorted(controls.items())))
+
+        condition = str(op.condition)
+        if condition not in NEGATED_CONDITION:
+            raise UnsupportedInstruction(f"unsupported integer comparison: {condition}")
+        same = left.source_slot is not None and left.source_slot == right.source_slot
+        result = []
+        for target, test in zip(
+            self.successors[pc.offset],
+            (condition, NEGATED_CONDITION[condition]),
+            strict=True,
+        ):
+            narrowed = refine_comparison(
+                test, left.interval, right.interval, same_operand=same
+            )
+            if narrowed is not None:
+                edge = after.refine_local(left.source_slot, narrowed[0])
+                edge = edge.refine_local(right.source_slot, narrowed[1])
+                result.append((PC(pc.method, target), edge))
+        return result
 
     def transfer(self, pc: PC, state: State) -> tuple[list[tuple[PC, State]], set[str]]:
         lattice = self.lattice
@@ -359,35 +483,69 @@ class AbstractInterpreter:
                 require_int(type_)
                 if not isinstance(value, int):
                     raise UnsupportedInstruction("non-integer constant")
-                after = state.push(Value(lattice.bot, context))
+                if not INT_MIN <= value <= INT_MAX:
+                    raise UnsupportedInstruction(
+                        "integer constant outside the JVM int range"
+                    )
+                after = state.push(
+                    Value(lattice.bot, context, Interval.constant(value))
+                )
             case jvm.Load(type=type_, index=slot):
                 require_int(type_)
-                after = state.push(state.load(slot).under(context, lattice))
+                after = state.push(
+                    replace(state.load(slot).under(context, lattice), source_slot=slot)
+                )
             case jvm.Store(type=type_, index=slot):
                 require_int(type_)
                 (value,), after = state.pop()
                 after = self.assign(pc, after, slot, value)
-            case jvm.Incr(index=slot):
-                after = self.assign(pc, state, slot, state.load(slot))
-            case jvm.Binary(type=type_):
+            case jvm.Incr(index=slot, amount=amount):
+                value = state.load(slot)
+                after = self.assign(
+                    pc,
+                    state,
+                    slot,
+                    replace(value, interval=value.interval.add_const(amount)),
+                )
+            case jvm.Binary(type=type_, operant=operator):
                 require_int(type_)
                 (left, right), after = state.pop(2)
-                after = after.push(left.join(right, lattice).under(context, lattice))
+                if (
+                    operator in (jvm.BinaryOpr.Div, jvm.BinaryOpr.Rem)
+                    and right.interval.minimum == right.interval.maximum == 0
+                ):
+                    # Exception handlers are outside the supported method model.
+                    return [], {"divide by zero"}
+                after = after.push(
+                    Value(
+                        lattice.join(left.data, right.data),
+                        lattice.join_all((left.control, right.control, context)),
+                        left.interval.binary(operator, right.interval),
+                    )
+                )
             case jvm.Negate(type=type_):
                 require_int(type_)
                 (value,), after = state.pop()
-                after = after.push(value.under(context, lattice))
+                after = after.push(
+                    replace(
+                        value.under(context, lattice),
+                        interval=value.interval.negate(),
+                        source_slot=None,
+                    )
+                )
             case jvm.Cast(from_=source, to_=target):
                 require_int(source)
                 require_int(target)
                 (value,), after = state.pop()
-                after = after.push(value.under(context, lattice))
+                after = after.push(
+                    replace(
+                        value.under(context, lattice),
+                        interval=value.interval.cast(target.encode()),
+                        source_slot=None,
+                    )
+                )
             case jvm.If() | jvm.Ifz():
-                operands, after = state.pop(2 if isinstance(op, jvm.If) else 1)
-                condition = lattice.join_all(v.label(lattice) for v in operands)
-                controls = dict(after.context)
-                controls[pc.offset] = lattice.join(context, condition)
-                after = replace(after, context=tuple(sorted(controls.items())))
+                return self.branch(pc, state, op), finals
             case jvm.Goto():
                 after = state
             case jvm.Dup(words=words):
@@ -488,8 +646,15 @@ class AbstractInterpreter:
                     )
                 state = self.scoped(target.offset, state)
                 previous = self.states.get(target)
+                thresholds = (
+                    self.thresholds
+                    if (pc.offset, target.offset) in self.back_edges
+                    else None
+                )
                 merged = (
-                    state if previous is None else previous.join(state, self.lattice)
+                    state
+                    if previous is None
+                    else previous.join(state, self.lattice, thresholds)
                 )
                 if previous is None or merged != previous:
                     self.states[target] = merged

@@ -17,6 +17,7 @@ def run(*args: str) -> str:
         capture_output=True,
         text=True,
         check=True,
+        timeout=30,
     ).stdout
 
 
@@ -49,8 +50,12 @@ def test_project_runs_independently_of_static_interpreter(monkeypatch, capsys):
         ("BasicLeaks.implicitIf:(I)V", "maybe"),
         ("BasicLeaks.implicitIfSafe:(I)V", "no"),
         ("BasicLeaks.implicitWhile:(I)V", "maybe"),
-        ("BasicLeaks.skippedLoop:(I)V", "maybe"),
+        ("BasicLeaks.skippedLoop:(I)V", "no"),
         ("BasicLeaks.leakAfterBackEdge:(II)V", "maybe"),
+        ("AdvancedLeaks.computedDeadBranchSafe:(I)V", "no"),
+        ("AdvancedLeaks.ternaryDeadBranchSafe:(I)V", "no"),
+        ("AdvancedLeaks.doWhileLeak:(I)V", "maybe"),
+        ("InfoFlow.launderedThroughArithmetic:(I)V", "maybe"),
         ("Simple.justReturn:()I", "unknown"),
     ],
 )
