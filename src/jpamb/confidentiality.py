@@ -369,7 +369,7 @@ class AbstractInterpreter:
                 after = self.assign(pc, after, slot, value)
             case jvm.Incr(index=slot):
                 after = self.assign(pc, state, slot, state.load(slot))
-            case jvm.Binary(type=type_):
+            case jvm.Binary(type=type_) | jvm.Bitopr(type=type_):
                 require_int(type_)
                 (left, right), after = state.pop(2)
                 after = after.push(left.join(right, lattice).under(context, lattice))

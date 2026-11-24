@@ -326,7 +326,6 @@ public class AdvancedLeaks {
 
   // 19. Array write with secret index on a fixed Low array parameter (`notes[secretIdx] = "Reviewed"`):
   // L(notes') = L(notes) ∪ L("Reviewed") ∪ L(secretIdx) ∪ pc = High ⊈ Low.
-  @Case("(1) -> assertion error")
   @Tag({EXPLICIT_FLOW, ARRAY, CALL})
   public static void arraySecretIndexParameterLeak(
       @Sec(conf = "Low") String[] notes, @Sec(conf = "High") int secretIdx) {

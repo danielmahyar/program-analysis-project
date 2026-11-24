@@ -178,6 +178,7 @@ class SecurityMonitor(NoMonitor):
                 | jvm.Load(type=t)
                 | jvm.Store(type=t)
                 | jvm.Binary(type=t)
+                | jvm.Bitopr(type=t)
                 | jvm.Negate(type=t)
             ):
                 confidentiality.require_int(t)
