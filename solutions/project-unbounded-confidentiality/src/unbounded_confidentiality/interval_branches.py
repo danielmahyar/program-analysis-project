@@ -1,5 +1,6 @@
-"""Interval refinements for the taken and fallthrough edges of integer comparisons."""
+"""Refine both numeric constraints for each edge of an integer comparison."""
 
+from .integer import AbstractInt
 from .interval import Interval
 
 NEGATED_CONDITION = {
@@ -67,3 +68,20 @@ def refine_comparison(
         return _ordered(left, right, strict=condition == "lt")
     swapped = _ordered(right, left, strict=condition == "gt")
     return (swapped[1], swapped[0]) if swapped is not None else None
+
+
+def refine_integers(
+    condition: str, left: AbstractInt, right: AbstractInt, *, same_operand: bool = False
+) -> tuple[AbstractInt, AbstractInt] | None:
+    """Project each feasible pair back onto its operands, preserving zero exclusions."""
+    left_results, right_results = [], []
+    right_parts = right.parts()
+    for a in left.parts():
+        for b in right_parts:
+            pair = refine_comparison(condition, a, b, same_operand=same_operand)
+            if pair is not None:
+                left_results.append(pair[0])
+                right_results.append(pair[1])
+    if not left_results:
+        return None
+    return AbstractInt.enclose(left_results), AbstractInt.enclose(right_results)

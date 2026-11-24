@@ -1,6 +1,6 @@
 """Intraprocedural, termination-insensitive confidentiality for JVM int/boolean code.
 
-Integer intervals filter infeasible CFG edges. Widening on loop back edges lets
+Sign sets and integer intervals filter infeasible CFG edges. Widening on back edges lets
 the worklist converge without unrolling the loop a fixed number of times.
 """
 
@@ -16,8 +16,9 @@ import sexpr
 from jpamb.security import ClassSecurityPolicy, SecurityLattice
 from jvm.state import PC
 
+from .integer import AbstractInt
 from .interval import INT_MAX, INT_MIN, Interval
-from .interval_branches import NEGATED_CONDITION, refine_comparison
+from .interval_branches import NEGATED_CONDITION, refine_integers
 
 if TYPE_CHECKING:
     from jpamb import Bytecode
@@ -44,7 +45,7 @@ class Config:
 class Value(sexpr.AsSExpr):
     data: str
     control: str
-    interval: Interval = field(default_factory=Interval.top)
+    number: AbstractInt = field(default_factory=AbstractInt.top)
     # A stack value may still be equal to the current contents of a local slot.
     source_slot: int | None = None
 
@@ -57,15 +58,15 @@ class Value(sexpr.AsSExpr):
         lattice: SecurityLattice,
         widening_thresholds: tuple[int, ...] | None = None,
     ) -> Value:
-        interval = (
-            self.interval.join(other.interval)
+        number = (
+            self.number.join(other.number)
             if widening_thresholds is None
-            else self.interval.widen(other.interval, widening_thresholds)
+            else self.number.widen(other.number, widening_thresholds)
         )
         return Value(
             lattice.join(self.data, other.data),
             lattice.join(self.control, other.control),
-            interval,
+            number,
             self.source_slot if self.source_slot == other.source_slot else None,
         )
 
@@ -147,13 +148,13 @@ class State(sexpr.AsSExpr):
             stack=stack,
         )
 
-    def refine_local(self, slot: int | None, interval: Interval) -> State:
+    def refine_local(self, slot: int | None, number: AbstractInt) -> State:
         if slot is None:
             return self
-        local = replace(self.load(slot), interval=interval)
+        local = replace(self.load(slot), number=number)
         # Narrow surviving copies of the same value, without performing a store.
         stack = tuple(
-            replace(v, interval=interval) if v.source_slot == slot else v
+            replace(v, number=number) if v.source_slot == slot else v
             for v in self.stack
         )
         return replace(
@@ -329,7 +330,9 @@ class AbstractInterpreter:
             interval = (
                 Interval(0, 1) if descriptor == "Z" else Interval.top().cast(descriptor)
             )
-            locals_[slot] = Value(initial[slot]["conf"], lattice.bot, interval)
+            locals_[slot] = Value(
+                initial[slot]["conf"], lattice.bot, AbstractInt(interval)
+            )
         state = State(tuple(locals_))
         # Every parameter has a fixed label: its @Sec, or else the class's
         # input default (Public in every case class). Writes are certified.
@@ -429,7 +432,7 @@ class AbstractInterpreter:
             # never inferred, so the slot keeps it whether or not the check holds.
             fixed = self.local_clearances[slot]
             self.check_flow(pc, value, state.pc(self.lattice), fixed, f"local {slot}")
-            return state.store(slot, Value(fixed, self.lattice.bot, value.interval))
+            return state.store(slot, Value(fixed, self.lattice.bot, value.number))
         # Unannotated locals infer their label: strong update L(e) ∪ pc.
         return state.store(slot, value)
 
@@ -441,7 +444,7 @@ class AbstractInterpreter:
         right = (
             operands[1]
             if len(operands) == 2
-            else Value(self.lattice.bot, self.lattice.bot, Interval.constant(0))
+            else Value(self.lattice.bot, self.lattice.bot, AbstractInt.constant(0))
         )
         guard = self.lattice.join_all(
             (
@@ -464,8 +467,8 @@ class AbstractInterpreter:
             (condition, NEGATED_CONDITION[condition]),
             strict=True,
         ):
-            narrowed = refine_comparison(
-                test, left.interval, right.interval, same_operand=same
+            narrowed = refine_integers(
+                test, left.number, right.number, same_operand=same
             )
             if narrowed is not None:
                 edge = after.refine_local(left.source_slot, narrowed[0])
@@ -488,7 +491,7 @@ class AbstractInterpreter:
                         "integer constant outside the JVM int range"
                     )
                 after = state.push(
-                    Value(lattice.bot, context, Interval.constant(value))
+                    Value(lattice.bot, context, AbstractInt.constant(value))
                 )
             case jvm.Load(type=type_, index=slot):
                 require_int(type_)
@@ -505,22 +508,20 @@ class AbstractInterpreter:
                     pc,
                     state,
                     slot,
-                    replace(value, interval=value.interval.add_const(amount)),
+                    replace(value, number=value.number.add_const(amount)),
                 )
             case jvm.Binary(type=type_, operant=operator):
                 require_int(type_)
                 (left, right), after = state.pop(2)
-                if (
-                    operator in (jvm.BinaryOpr.Div, jvm.BinaryOpr.Rem)
-                    and right.interval.minimum == right.interval.maximum == 0
-                ):
+                number = left.number.binary(operator, right.number)
+                if number is None:
                     # Exception handlers are outside the supported method model.
                     return [], {"divide by zero"}
                 after = after.push(
                     Value(
                         lattice.join(left.data, right.data),
                         lattice.join_all((left.control, right.control, context)),
-                        left.interval.binary(operator, right.interval),
+                        number,
                     )
                 )
             case jvm.Negate(type=type_):
@@ -529,7 +530,7 @@ class AbstractInterpreter:
                 after = after.push(
                     replace(
                         value.under(context, lattice),
-                        interval=value.interval.negate(),
+                        number=value.number.negate(),
                         source_slot=None,
                     )
                 )
@@ -540,7 +541,7 @@ class AbstractInterpreter:
                 after = after.push(
                     replace(
                         value.under(context, lattice),
-                        interval=value.interval.cast(target.encode()),
+                        number=value.number.cast(target.encode()),
                         source_slot=None,
                     )
                 )

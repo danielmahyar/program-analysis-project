@@ -1,8 +1,9 @@
 from pathlib import Path
 
 import pytest
+from unbounded_confidentiality.integer import AbstractInt, SignSet
 from unbounded_confidentiality.interpreter import AbstractInterpreter, Config, analyze
-from unbounded_confidentiality.interval import Interval
+from unbounded_confidentiality.interval import INT_MAX, INT_MIN, Interval
 
 import jpamb
 import jvm
@@ -17,6 +18,37 @@ def test_join_and_threshold_widening():
     assert widened == Interval(0, 8)
     assert widened.widen(incoming, (0, 4, 8)) == widened
     assert widened.widen(Interval(0, 9), (0, 4, 8)) == Interval(0, None)
+
+
+def test_product_widening_preserves_nonzero_until_zero_reaches_the_loop():
+    nonzero = SignSet.NEGATIVE | SignSet.POSITIVE
+    thresholds = (-10, 0, 10)
+    previous = AbstractInt.constant(-2).join(AbstractInt.constant(2))
+    assert previous == AbstractInt(Interval(-2, 2), nonzero)
+    widened = previous.widen(AbstractInt.constant(3), thresholds)
+    assert widened == AbstractInt(Interval(-2, 10), nonzero)
+    assert widened.widen(previous, thresholds) == widened
+    with_zero = widened.widen(AbstractInt.constant(0), thresholds)
+    assert with_zero.interval == widened.interval
+    assert with_zero.signs == SignSet.ALL
+    assert with_zero.widen(previous, thresholds) == with_zero
+
+
+def test_product_arithmetic_preserves_sign_holes_and_jvm_wraparound():
+    nonzero = SignSet.NEGATIVE | SignSet.POSITIVE
+    choice = AbstractInt.constant(-5).join(AbstractInt.constant(5))
+    assert choice.negate() == choice
+    assert choice.cast("B") == choice
+    assert choice.binary(jvm.BinaryOpr.Mul, AbstractInt.constant(2)) == AbstractInt(
+        Interval(-10, 10), nonzero
+    )
+    assert AbstractInt.constant(INT_MAX).add_const(1) == AbstractInt.constant(INT_MIN)
+    wrapped = AbstractInt(Interval(INT_MAX - 1, INT_MAX)).add_const(1)
+    assert wrapped.interval.minimum <= INT_MIN and wrapped.signs & SignSet.NEGATIVE
+    assert wrapped.interval.maximum >= INT_MAX and wrapped.signs & SignSet.POSITIVE
+    assert AbstractInt.constant(INT_MIN).negate() == AbstractInt.constant(INT_MIN)
+    assert AbstractInt(Interval.top(), nonzero).negate().signs == nonzero
+    assert AbstractInt.constant(256).cast("B") == AbstractInt.constant(0)
 
 
 @pytest.mark.parametrize(
@@ -73,6 +105,80 @@ def check_body(instructions, *, max_steps=None):
 
 
 RETURN = {"opr": "return", "type": None}
+
+
+@pytest.mark.parametrize(("limit", "verdict"), [(1, "safe"), (2, "violation")])
+def test_nonzero_and_nonnegative_refine_the_lower_bound(limit, verdict):
+    # if (x != 0 && x >= 0 && x < limit) publish(secret);
+    # With limit=1 the last test is impossible. With limit=2, x=1 reaches the sink.
+    result = check_body(
+        [
+            load(1),
+            compare_zero("eq", 9),
+            load(1),
+            compare_zero("lt", 9),
+            load(1),
+            push(limit),
+            {"opr": "if", "condition": "ge", "target": 9},
+            load(0),
+            "publish",
+            RETURN,
+        ]
+    )
+    state = next(state for pc, state in result.states.items() if pc.offset == 4)
+    assert state.load(1).number == AbstractInt(Interval(1, None), SignSet.POSITIVE)
+    assert result.status == verdict
+
+
+def test_stack_merge_remembers_nonzero_through_a_store_and_reload():
+    # int x = publicFlag == 0 ? 5 : -5; if (x == 0) publish(secret);
+    result = check_body(
+        [
+            load(1),
+            compare_zero("eq", 4),
+            push(-5),
+            {"opr": "goto", "target": 5},
+            push(5),
+            {"opr": "store", "type": "int", "index": 2},
+            load(2),
+            compare_zero("ne", 10),
+            load(0),
+            "publish",
+            RETURN,
+        ]
+    )
+    state = next(state for pc, state in result.states.items() if pc.offset == 5)
+    assert state.stack[-1].number == AbstractInt(
+        Interval(-5, 5), SignSet.NEGATIVE | SignSet.POSITIVE
+    )
+    assert all(pc.offset != 9 for pc in result.states)
+    assert result.safe
+
+
+def test_loop_revisits_guard_when_only_the_sign_set_grows():
+    # The first visit brings -1 or 1. The back edge brings 0 within those same bounds.
+    result = check_body(
+        [
+            load(1),
+            compare_zero("eq", 4),
+            push(-1),
+            {"opr": "goto", "target": 5},
+            push(1),
+            {"opr": "store", "type": "int", "index": 2},
+            load(2),
+            compare_zero("ne", 11),
+            load(0),
+            "publish",
+            RETURN,
+            push(0),
+            {"opr": "store", "type": "int", "index": 2},
+            {"opr": "goto", "target": 6},
+        ],
+        max_steps=100,
+    )
+    state = next(state for pc, state in result.states.items() if pc.offset == 6)
+    assert state.load(2).number == AbstractInt(Interval(-1, 1), SignSet.ALL)
+    assert result.complete and result.status == "violation"
 
 
 def test_branch_refines_a_reloaded_public_argument():
