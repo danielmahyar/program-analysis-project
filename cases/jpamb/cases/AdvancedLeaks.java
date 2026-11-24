@@ -357,4 +357,30 @@ public class AdvancedLeaks {
     int x = table[openIdx];
     publishMid(x);
   }
+
+  // 22. Observing the public sink call reveals that the High skip flag is zero.
+  @Case("(0) -> assertion error")
+  @Case("(1) -> ok")
+  @Tag({IMPLICIT_FLOW, CONDITIONAL, LOOP, CALL})
+  public static void continueSkipsSink(@Sec(conf = "High") int skip) {
+    for (int i = 0; i < 2; i++) {
+      if (skip != 0) {
+        continue;
+      }
+      publishLow(i);
+    }
+  }
+
+  // 23. The same loop may safely reveal whether a Low skip flag is zero.
+  @Case("(0) -> ok")
+  @Case("(1) -> ok")
+  @Tag({CONDITIONAL, LOOP, CALL})
+  public static void continueSkipsSinkSafe(@Sec(conf = "Low") int skip) {
+    for (int i = 0; i < 2; i++) {
+      if (skip != 0) {
+        continue;
+      }
+      publishLow(i);
+    }
+  }
 }

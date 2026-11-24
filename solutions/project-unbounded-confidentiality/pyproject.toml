@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "project-unbounded-confidentiality"
+version = "0.1.0"
+description = "Fixed-point confidentiality analysis of JVM bytecode control-flow graphs."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = ["jpamb"]
+
+[project.scripts]
+project-unbounded-confidentiality = "unbounded_analysis:analyse"
+
+[tool.uv.sources]
+jpamb = { path = "../../", editable = true }
+
+[dependency-groups]
+dev = ["pytest>=9.1.1"]
