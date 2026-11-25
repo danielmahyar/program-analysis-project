@@ -41,15 +41,32 @@ The [project command](src/unbounded_analysis.py) runs its own
 JPAMB supplies the bytecode and security policy. The `static-analysis` command
 in `solutions/static` uses the [original interpreter](../../src/jpamb/confidentiality.py).
 
-The interpreter builds a control-flow graph and keeps an abstract state at
-each reachable instruction. Each local and stack value carries confidentiality
-labels and a signed JVM integer interval. A conditional follows each edge whose
-comparison admits a value in the incoming ranges. On each feasible edge it
-narrows the ranges of the compared locals. Assignments under a secret guard
-inherit its label, even if arithmetic determines the numeric result exactly.
-Post-dominators identify where the guard stops controlling execution.
+The analyser checks an integer return against the method's `@Sec` clearance.
+For an unannotated return it records the value's label. Set
+`JPAMB_CONF_RETURN_CLEARANCE` to a level in the class's lattice to enforce a
+clearance on those returns as well.
 
-At ordinary merges, the analyser joins labels and takes the interval hull.
+The interpreter builds a control-flow graph and keeps an abstract state at
+each reachable instruction. Each local and operand-stack value carries
+confidentiality labels and [one abstract integer](src/unbounded_confidentiality/integer.py).
+Its possible values must satisfy both a signed JVM integer interval and a
+set of signs (negative, zero, positive). Branches and arithmetic operate on
+the portions of the interval allowed by those signs. Assignments under a
+secret guard inherit its label, even if arithmetic determines the numeric
+result exactly. A guarded `swap` labels both moved stack values, and a guarded
+`dup` labels the new copy. Values left in place keep their labels when the
+paths rejoin. Post-dominators identify where the guard stops controlling
+execution.
+
+For example, on the path where a public integer `x != 0`, the sign set drops
+zero even when the interval still spans negative and positive values. A
+subsequent `x >= 0` then tightens the lower bound to **1**. The analyser can
+skip `if (x < 1) publish(secret)` on that path. Changing the guard to
+`x < 2` keeps the leak reachable at `x = 1`.
+
+At ordinary merges, the analyser joins labels, takes the interval hull and
+unions the signs. Merging `-5` and `5` gives bounds `[-5, 5]` and keeps zero
+excluded. An empty comparison result drops the corresponding CFG edge.
 On a depth-first search back edge, it widens growing interval endpoints to
 the nearest enclosing threshold, or to infinity when no threshold remains.
 Thresholds come from the method's integer constants, increment amounts and
@@ -59,8 +76,10 @@ The arithmetic rules account for 32-bit wraparound.
 
 The worklist revisits an instruction only on first arrival or when its stored
 state grows. Every reachable cycle contains a DFS back edge. Widening on each
-such edge can expand a stored bound only finitely often, and labels range over
-a finite lattice. The remaining edges form a DAG, so their ordinary joins also
+such edge can expand a stored bound only finitely often. Sign sets grow by
+union and can gain at most three signs. Reducing widened bounds to fit the
+signs adds only the boundaries `-1`, `0` and `1`. Confidentiality labels
+range over a finite lattice. The remaining edges form a DAG, so their ordinary joins also
 stabilise. See the [DTU course notes on widening](https://courses.compute.dtu.dk/02242/topics/unbounded-static-analysis.html).
 
 ## Branch and loop cases
