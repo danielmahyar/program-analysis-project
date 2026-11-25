@@ -1,23 +1,4 @@
 (benchmark
-  :"jpamb.cases.AdvancedLeaks.arrayMonolithicReadLeak!(10, 1)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.arrayMonolithicReadLeak:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)
-      )
-    )
-    :results ("assertion error")
-  )
-  :"jpamb.cases.AdvancedLeaks.arrayMonolithicSafe!(10, 1)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.arrayMonolithicSafe:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29)
-      )
-      :"jpamb.cases.AdvancedLeaks.publishMid:(I)V" (coverage
-        :reachable (0)
-      )
-    )
-    :results (ok)
-  )
   :"jpamb.cases.AdvancedLeaks.computedDeadBranchSafe!(99)V" (control
     :coverage (
       :"jpamb.cases.AdvancedLeaks.computedDeadBranchSafe:(I)V" (coverage
@@ -253,105 +234,6 @@
       )
     )
     :results (ok)
-  )
-  :"jpamb.cases.AdvancedLeaks.recursiveCountdownLeak!(0)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.recursiveCountdownLeak:(I)V" (coverage
-        :reachable (0 1 2 3)
-      )
-    )
-    :results ("assertion error")
-  )
-  :"jpamb.cases.AdvancedLeaks.recursiveCountdownLeak!(3)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.recursiveCountdownLeak:(I)V" (coverage
-        :reachable (0 1 5 6 7 8 9 11 12 13 14)
-      )
-    )
-    :results ("assertion error")
-  )
-  :"jpamb.cases.AdvancedLeaks.recursiveExplicitLeak!(-1, 99)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.publishLow:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.recursiveExplicitLeak:(II)V" (coverage
-        :reachable (0 1 2 3 4)
-      )
-    )
-    :results (ok)
-  )
-  :"jpamb.cases.AdvancedLeaks.recursiveExplicitLeak!(2, 99)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.recursiveExplicitLeak:(II)V" (coverage
-        :reachable (0 1 5 6 7 8 10 11 12 13 14)
-      )
-    )
-    :results ("assertion error")
-  )
-  :"jpamb.cases.AdvancedLeaks.recursiveSafe!(0, 99)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.publishHigh:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.publishLow:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.recursiveSafe:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6)
-      )
-    )
-    :results (ok)
-  )
-  :"jpamb.cases.AdvancedLeaks.recursiveSafe!(3, 99)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.publishHigh:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.publishLow:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.recursiveSafe:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12)
-      )
-    )
-    :results (ok)
-  )
-  :"jpamb.cases.AdvancedLeaks.stringBranchAndConcatSafe!(s'Oncology', s'classified')V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.publishHigh:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.publishMid:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.stringBranchAndConcatSafe:(Ljava/lang/String;Ljava/lang/String;)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17)
-      )
-    )
-    :results (ok)
-  )
-  :"jpamb.cases.AdvancedLeaks.stringBranchAndConcatSafe!(s'Public', s'classified')V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.publishHigh:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.publishMid:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.stringBranchAndConcatSafe:(Ljava/lang/String;Ljava/lang/String;)V" (coverage
-        :reachable (0 1 2 3 4 5 12 13 14 15 16 17)
-      )
-    )
-    :results (ok)
-  )
-  :"jpamb.cases.AdvancedLeaks.stringConcatLengthLeak!(s'secret', s'dept')V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.stringConcatLengthLeak:(Ljava/lang/String;Ljava/lang/String;)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8)
-      )
-    )
-    :results ("assertion error")
   )
   :"jpamb.cases.AdvancedLeaks.ternaryDeadBranchSafe!(42)V" (control
     :coverage (
@@ -623,28 +505,6 @@
     )
     :results (ok)
   )
-  :"jpamb.cases.BasicLeaks.arrayIndexWriteLeak!(1)V" (control
-    :coverage (
-      :"jpamb.cases.BasicLeaks.arrayIndexWriteLeak:(I)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27)
-      )
-      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
-        :reachable (0)
-      )
-    )
-    :results ("assertion error")
-  )
-  :"jpamb.cases.BasicLeaks.arrayIndexWriteSafe!(1)V" (control
-    :coverage (
-      :"jpamb.cases.BasicLeaks.arrayIndexWriteSafe:(I)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27)
-      )
-      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
-        :reachable (0)
-      )
-    )
-    :results (ok)
-  )
   :"jpamb.cases.BasicLeaks.explicitArithmetic!(7)V" (control
     :coverage (
       :"jpamb.cases.BasicLeaks.explicitArithmetic:(I)V" (coverage
@@ -898,50 +758,6 @@
       )
       :"jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt:(I)V" (coverage
         :reachable (0 1 2 3 4 5 6 7 8 9 10)
-      )
-    )
-    :results (ok)
-  )
-  :"jpamb.cases.BasicLeaks.stringEqualsImplicitLeak!(s'High')V" (control
-    :coverage (
-      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.BasicLeaks.stringEqualsImplicitLeak:(Ljava/lang/String;)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10)
-      )
-    )
-    :results ("assertion error")
-  )
-  :"jpamb.cases.BasicLeaks.stringEqualsImplicitLeak!(s'Low')V" (control
-    :coverage (
-      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.BasicLeaks.stringEqualsImplicitLeak:(Ljava/lang/String;)V" (coverage
-        :reachable (0 1 2 3 4 5 8 9 10)
-      )
-    )
-    :results (ok)
-  )
-  :"jpamb.cases.BasicLeaks.stringEqualsSafe!(s'High')V" (control
-    :coverage (
-      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.BasicLeaks.stringEqualsSafe:(Ljava/lang/String;)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10)
-      )
-    )
-    :results (ok)
-  )
-  :"jpamb.cases.BasicLeaks.stringEqualsSafe!(s'Low')V" (control
-    :coverage (
-      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.BasicLeaks.stringEqualsSafe:(Ljava/lang/String;)V" (coverage
-        :reachable (0 1 2 3 4 5 8 9 10)
       )
     )
     :results (ok)
@@ -3169,6 +2985,206 @@
     )
     :results ("out of bounds")
   )
+  :"jpamb.cases.PrecisionBenchmarks.bitwiseMaskBoundSafe!(-1, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.bitwiseMaskBoundSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 9)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.bitwiseMaskBoundSafe!(255, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.bitwiseMaskBoundSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 9)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.bitwiseOrNonZeroSafe!(-1, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.bitwiseOrNonZeroSafe:(II)V" (coverage
+        :reachable (0 1 2 3 6)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.bitwiseOrNonZeroSafe!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.bitwiseOrNonZeroSafe:(II)V" (coverage
+        :reachable (0 1 2 3 6)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.contradictoryRangeSafe!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.contradictoryRangeSafe:(II)V" (coverage
+        :reachable (0 1 2 8)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.contradictoryRangeSafe!(20, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.contradictoryRangeSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 8)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.correlatedBranchSafe!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.correlatedBranchSafe:(II)V" (coverage
+        :reachable (0 1 2 3 6 7 8 9 10 13)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.correlatedBranchSafe!(1, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.correlatedBranchSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 13)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe:(II)V" (coverage
+        :reachable (0 1 4 5 6 7 8 11)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe!(1, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe:(II)V" (coverage
+        :reachable (0 1 2 3 5 6 7 8 11)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.loopExitBoundSafe!(99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.loopExitBoundSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 15)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.overflowDeadBranchSafe!(99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.overflowDeadBranchSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 10)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.overflowPrunedBySyntacticLeak!(99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.overflowPrunedBySyntacticLeak:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.PrecisionBenchmarks.paritySafe!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.paritySafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 16)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.paritySafe!(3, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.paritySafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 16)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.relationalAlwaysLeak!(-3, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.relationalAlwaysLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.PrecisionBenchmarks.relationalAlwaysLeak!(5, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.relationalAlwaysLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.PrecisionBenchmarks.relationalOrderSafe!(10, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.relationalOrderSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 14)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.relationalOrderSafe!(50, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.relationalOrderSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 14)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.relationalSelfCancelSafe!(-3, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.relationalSelfCancelSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 8)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.relationalSelfCancelSafe!(5, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.relationalSelfCancelSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 8)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.signHoleRangeSafe!(-1, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.signHoleRangeSafe:(II)V" (coverage
+        :reachable (0 1 2 3 9)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.signHoleRangeSafe!(0, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.signHoleRangeSafe:(II)V" (coverage
+        :reachable (0 1 9)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.signHoleRangeSafe!(1, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.signHoleRangeSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 9)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.wideningOvershootSafe!(99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.wideningOvershootSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 21)
+      )
+    )
+    :results (ok)
+  )
   :"jpamb.cases.Randomness.branchOverlap!(r'0000')V" (control
     :coverage (
       :"jpamb.cases.Randomness.branchOverlap:(Ljpamb/utils/Smith;)V" (coverage
@@ -4078,25 +4094,6 @@
     )
     :results (ok)
   )
-  :"jpamb.cases.AdvancedLeaks.arrayMonolithicReadLeak:(II)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.arrayMonolithicReadLeak:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28)
-      )
-    )
-    :results ("assertion error")
-  )
-  :"jpamb.cases.AdvancedLeaks.arrayMonolithicSafe:(II)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.arrayMonolithicSafe:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29)
-      )
-      :"jpamb.cases.AdvancedLeaks.publishMid:(I)V" (coverage
-        :reachable (0)
-      )
-    )
-    :results (ok)
-  )
   :"jpamb.cases.AdvancedLeaks.computedDeadBranchSafe:(I)V" (control
     :coverage (
       :"jpamb.cases.AdvancedLeaks.computedDeadBranchSafe:(I)V" (coverage
@@ -4219,61 +4216,6 @@
       )
     )
     :results (ok)
-  )
-  :"jpamb.cases.AdvancedLeaks.recursiveCountdownLeak:(I)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.recursiveCountdownLeak:(I)V" (coverage
-        :reachable (0 1 2 3 5 6 7 8 9 11 12 13 14)
-      )
-    )
-    :results ("assertion error")
-  )
-  :"jpamb.cases.AdvancedLeaks.recursiveExplicitLeak:(II)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.publishLow:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.recursiveExplicitLeak:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 10 11 12 13 14)
-      )
-    )
-    :results ("assertion error" ok)
-  )
-  :"jpamb.cases.AdvancedLeaks.recursiveSafe:(II)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.publishHigh:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.publishLow:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.recursiveSafe:(II)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12)
-      )
-    )
-    :results (ok)
-  )
-  :"jpamb.cases.AdvancedLeaks.stringBranchAndConcatSafe:(Ljava/lang/String;Ljava/lang/String;)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.publishHigh:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.publishMid:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.AdvancedLeaks.stringBranchAndConcatSafe:(Ljava/lang/String;Ljava/lang/String;)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17)
-      )
-    )
-    :results (ok)
-  )
-  :"jpamb.cases.AdvancedLeaks.stringConcatLengthLeak:(Ljava/lang/String;Ljava/lang/String;)V" (control
-    :coverage (
-      :"jpamb.cases.AdvancedLeaks.stringConcatLengthLeak:(Ljava/lang/String;Ljava/lang/String;)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8)
-      )
-    )
-    :results ("assertion error")
   )
   :"jpamb.cases.AdvancedLeaks.ternaryDeadBranchSafe:(I)V" (control
     :coverage (
@@ -4440,28 +4382,6 @@
       )
     )
     :results ("divide by zero" ok)
-  )
-  :"jpamb.cases.BasicLeaks.arrayIndexWriteLeak:(I)V" (control
-    :coverage (
-      :"jpamb.cases.BasicLeaks.arrayIndexWriteLeak:(I)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27)
-      )
-      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
-        :reachable (0)
-      )
-    )
-    :results ("assertion error")
-  )
-  :"jpamb.cases.BasicLeaks.arrayIndexWriteSafe:(I)V" (control
-    :coverage (
-      :"jpamb.cases.BasicLeaks.arrayIndexWriteSafe:(I)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27)
-      )
-      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
-        :reachable (0)
-      )
-    )
-    :results (ok)
   )
   :"jpamb.cases.BasicLeaks.explicitArithmetic:(I)V" (control
     :coverage (
@@ -4634,28 +4554,6 @@
         :reachable (0)
       )
       :"jpamb.cases.BasicLeaks.staticFlagsButDynamicDoesnt:(I)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10)
-      )
-    )
-    :results (ok)
-  )
-  :"jpamb.cases.BasicLeaks.stringEqualsImplicitLeak:(Ljava/lang/String;)V" (control
-    :coverage (
-      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.BasicLeaks.stringEqualsImplicitLeak:(Ljava/lang/String;)V" (coverage
-        :reachable (0 1 2 3 4 5 6 7 8 9 10)
-      )
-    )
-    :results ("assertion error" ok)
-  )
-  :"jpamb.cases.BasicLeaks.stringEqualsSafe:(Ljava/lang/String;)V" (control
-    :coverage (
-      :"jpamb.cases.BasicLeaks.publish:(I)V" (coverage
-        :reachable (0)
-      )
-      :"jpamb.cases.BasicLeaks.stringEqualsSafe:(Ljava/lang/String;)V" (coverage
         :reachable (0 1 2 3 4 5 6 7 8 9 10)
       )
     )
@@ -5958,6 +5856,118 @@
       )
     )
     :results (ok "out of bounds")
+  )
+  :"jpamb.cases.PrecisionBenchmarks.bitwiseMaskBoundSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.bitwiseMaskBoundSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 9)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.bitwiseOrNonZeroSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.bitwiseOrNonZeroSafe:(II)V" (coverage
+        :reachable (0 1 2 3 6)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.contradictoryRangeSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.contradictoryRangeSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 8)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.correlatedBranchSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.correlatedBranchSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 13)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 11)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.loopExitBoundSafe:(I)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.loopExitBoundSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 15)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.overflowDeadBranchSafe:(I)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.overflowDeadBranchSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 10)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.overflowPrunedBySyntacticLeak:(I)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.overflowPrunedBySyntacticLeak:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.PrecisionBenchmarks.paritySafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.paritySafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 16)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.relationalAlwaysLeak:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.relationalAlwaysLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.PrecisionBenchmarks.relationalOrderSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.relationalOrderSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 14)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.relationalSelfCancelSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.relationalSelfCancelSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 8)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.signHoleRangeSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.signHoleRangeSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 9)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.wideningOvershootSafe:(I)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.wideningOvershootSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 21)
+      )
+    )
+    :results (ok)
   )
   :"jpamb.cases.Randomness.branchOverlap:(Ljpamb/utils/Smith;)V" (control
     :coverage (

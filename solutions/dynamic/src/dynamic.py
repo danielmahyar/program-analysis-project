@@ -51,7 +51,9 @@ def i32(x: int) -> int:
     return fuzz_inputs.signed_int(x)
 
 
-def binary(op: jvm.BinaryOpr, a: int, b: int) -> int | str:
+def binary(op: jvm.BinaryOpr | jvm.BitOpr, a: int, b: int) -> int | str:
+    if isinstance(op, jvm.BitOpr):
+        op = jvm.BinaryOpr[op.name]
     match op:
         case jvm.BinaryOpr.Add:
             return i32(a + b)
@@ -202,7 +204,10 @@ def step(
             frame.stack.push(a)
             frame.pc += 1
 
-        case jvm.Binary(type=jvm.Int(), operant=op):
+        case (
+            jvm.Binary(type=jvm.Int(), operant=op)
+            | jvm.Bitopr(type=jvm.Int(), operant=op)
+        ):
             b, a = as_int(frame.stack.pop()), as_int(frame.stack.pop())
             result = binary(op, a, b)
             if isinstance(result, str):

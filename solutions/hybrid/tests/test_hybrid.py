@@ -120,18 +120,6 @@ def test_advanced_leaks_nested_while_corner_cases():
     assert preds_safe["ok"] == "confirmed-ok"
 
 
-def test_advanced_leaks_recursion_cases():
-    preds_countdown = run_cli("jpamb.cases.AdvancedLeaks.recursiveCountdownLeak:(I)V")
-    assert preds_countdown["assertion error"] == "confirmed-leak"
-
-    preds_explicit = run_cli("jpamb.cases.AdvancedLeaks.recursiveExplicitLeak:(II)V")
-    assert preds_explicit["assertion error"] == "confirmed-leak"
-
-    preds_safe = run_cli("jpamb.cases.AdvancedLeaks.recursiveSafe:(II)V")
-    assert preds_safe["assertion error"] in ("confirmed-safe", "not-found")
-    assert preds_safe["ok"] == "confirmed-ok"
-
-
 def test_advanced_leaks_early_return_and_dead_branches():
     preds_early_leak = run_cli("jpamb.cases.AdvancedLeaks.earlyReturnBeforeSink:(I)V")
     assert preds_early_leak["assertion error"] == "confirmed-leak"

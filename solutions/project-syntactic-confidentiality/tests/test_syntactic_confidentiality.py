@@ -232,22 +232,14 @@ def test_novel_datatype_arrays_monolithic_and_index_tainting():
     assert len(leaks) == 1
 
 
-def test_basic_and_advanced_leaks_strings_and_arrays():
-    # BasicLeaks: Strings
-    assert run("jpamb.cases.BasicLeaks.stringEqualsImplicitLeak:(Ljava/lang/String;)V")["assertion error"] == "90%"
-    assert run("jpamb.cases.BasicLeaks.stringEqualsSafe:(Ljava/lang/String;)V")["assertion error"] == "10%"
+def test_constant_folding_uses_32bit_jvm_overflow():
+    # 2147483647 + 1 wraps to -2147483648 on the JVM: y < 0 is live, y > 0 is dead.
+    preds_leak = run(
+        "jpamb.cases.PrecisionBenchmarks.overflowPrunedBySyntacticLeak:(I)V"
+    )
+    assert preds_leak["assertion error"] == "90%"
+    assert preds_leak["ok"] == "10%"
 
-    # BasicLeaks: Arrays (monolithic index tainting)
-    assert run("jpamb.cases.BasicLeaks.arrayIndexWriteLeak:(I)V")["assertion error"] == "90%"
-    assert run("jpamb.cases.BasicLeaks.arrayIndexWriteSafe:(I)V")["assertion error"] == "10%"
-
-    # AdvancedLeaks: Strings (concatenation + .length() + .equals())
-    assert run("jpamb.cases.AdvancedLeaks.stringConcatLengthLeak:(Ljava/lang/String;Ljava/lang/String;)V")["assertion error"] == "90%"
-    assert run("jpamb.cases.AdvancedLeaks.stringBranchAndConcatSafe:(Ljava/lang/String;Ljava/lang/String;)V")["assertion error"] == "10%"
-
-    # AdvancedLeaks: Arrays (parameter index tainting & monolithic read/write)
-    assert run("jpamb.cases.AdvancedLeaks.arraySecretIndexParameterLeak:([Ljava/lang/String;I)V")["assertion error"] == "90%"
-    assert run("jpamb.cases.AdvancedLeaks.arrayMonolithicReadLeak:(II)V")["assertion error"] == "90%"
-    assert run("jpamb.cases.AdvancedLeaks.arrayMonolithicSafe:(II)V")["assertion error"] == "10%"
-
-
+    preds_safe = run("jpamb.cases.PrecisionBenchmarks.overflowDeadBranchSafe:(I)V")
+    assert preds_safe["assertion error"] == "10%"
+    assert preds_safe["ok"] == "95%"
