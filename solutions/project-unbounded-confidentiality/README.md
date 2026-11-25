@@ -41,6 +41,11 @@ The [project command](src/unbounded_analysis.py) runs its own
 JPAMB supplies the bytecode and security policy. The `static-analysis` command
 in `solutions/static` uses the [original interpreter](../../src/jpamb/confidentiality.py).
 
+The analyser checks an integer return against the method's `@Sec` clearance.
+For an unannotated return it records the value's label. Set
+`JPAMB_CONF_RETURN_CLEARANCE` to a level in the class's lattice to enforce a
+clearance on those returns as well.
+
 The interpreter builds a control-flow graph and keeps an abstract state at
 each reachable instruction. Each local and operand-stack value carries
 confidentiality labels and [one abstract integer](src/unbounded_confidentiality/integer.py).
@@ -48,7 +53,9 @@ Its possible values must satisfy both a signed JVM integer interval and a
 set of signs (negative, zero, positive). Branches and arithmetic operate on
 the portions of the interval allowed by those signs. Assignments under a
 secret guard inherit its label, even if arithmetic determines the numeric
-result exactly. Post-dominators identify where the guard stops controlling
+result exactly. A guarded `swap` labels both moved stack values, and a guarded
+`dup` labels the new copy. Values left in place keep their labels when the
+paths rejoin. Post-dominators identify where the guard stops controlling
 execution.
 
 For example, on the path where a public integer `x != 0`, the sign set drops

@@ -30,7 +30,7 @@ class UnsupportedInstruction(ValueError):
 
 @dataclass(frozen=True)
 class Config:
-    # None means lattice bottom (Public, Low, Unclassified, etc.).
+    # Optional clearance for unannotated returns. A method's @Sec takes precedence.
     return_clearance: str | None = None
     max_steps: int | None = None
     # Explicit policies for local slots, applying for the entire method.
@@ -279,7 +279,7 @@ class AbstractInterpreter:
     lattice: SecurityLattice
     config: Config
     local_clearances: dict[int, str]
-    return_clearance: str
+    return_clearance: str | None
     successors: tuple[tuple[int, ...], ...]
     back_edges: set[tuple[int, int]]
     thresholds: tuple[int, ...]
@@ -359,10 +359,9 @@ class AbstractInterpreter:
             declared.return_clearance["conf"]
             if declared.return_clearance is not None
             else config.return_clearance
-            if config.return_clearance is not None
-            else lattice.bot
         )
-        lattice.require(clearance)
+        if clearance is not None:
+            lattice.require(clearance)
         successors = control_flow(method.opcodes)
         thresholds = {0}
         for op in method.opcodes:
@@ -393,19 +392,7 @@ class AbstractInterpreter:
             for branch, label in state.context
             if index == branch or index not in self.postdom[branch]
         )
-        # A branch can select existing stack values using only swap/pop. Taint
-        # live stack positions at the merge before discarding its context, so
-        # those choices cannot escape merely because no constant was produced.
-        leaving = self.lattice.join_all(
-            label
-            for branch, label in state.context
-            if index != branch and index in self.postdom[branch]
-        )
-        return replace(
-            state,
-            stack=tuple(value.under(leaving, self.lattice) for value in state.stack),
-            context=retained,
-        )
+        return replace(state, context=retained)
 
     def check_flow(
         self, pc: PC, value: Value, context: str, allowed: str, target: str
@@ -510,9 +497,11 @@ class AbstractInterpreter:
                     slot,
                     replace(value, number=value.number.add_const(amount)),
                 )
-            case jvm.Binary(type=type_, operant=operator):
-                require_int(type_)
+            case jvm.Binary() | jvm.Bitopr():
+                require_int(op.type)
                 (left, right), after = state.pop(2)
+                # The decoder gives bitwise instructions their own operator enum.
+                operator = jvm.BinaryOpr[op.operant.name]
                 number = left.number.binary(operator, right.number)
                 if number is None:
                     # Exception handlers are outside the supported method model.
@@ -552,15 +541,18 @@ class AbstractInterpreter:
             case jvm.Dup(words=words):
                 if words not in (1, 2):
                     raise UnsupportedInstruction(f"unsupported dup width {words}")
-                values, after = state.pop(words)
-                after = after.push(*values, *values)
+                values, _ = state.pop(words)
+                # Only the appended copies occupy positions written under this guard.
+                after = state.push(*(value.under(context, lattice) for value in values))
             case jvm.Pop(words=words):
                 if words not in (1, 2):
                     raise UnsupportedInstruction(f"unsupported pop width {words}")
                 _, after = state.pop(words)
             case jvm.Swap():
                 (left, right), after = state.pop(2)
-                after = after.push(right, left)
+                after = after.push(
+                    right.under(context, lattice), left.under(context, lattice)
+                )
             case jvm.InvokeStatic(method=called):
                 sink = self.policy.sink(called)
                 if sink is None or not sink.is_static or sink.unsupported_features:
@@ -621,7 +613,7 @@ class AbstractInterpreter:
                         if self.returned is None
                         else self.returned.join(value, lattice)
                     )
-                    valid = self.check_flow(
+                    valid = self.return_clearance is None or self.check_flow(
                         pc, value, context, self.return_clearance, "return"
                     )
                     finals.add("ok" if valid else "assertion error")

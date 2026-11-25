@@ -155,6 +155,55 @@ def test_stack_merge_remembers_nonzero_through_a_store_and_reload():
     assert result.safe
 
 
+@pytest.mark.parametrize("temporary", [push(9), {"opr": "dup", "words": 1}])
+def test_secret_branch_leaves_existing_public_stack_value_untouched(temporary):
+    # Either arm still publishes the 42 pushed before the secret guard.
+    result = check_body(
+        [
+            push(42),
+            load(0),
+            compare_zero("eq", 5),
+            temporary,
+            {"opr": "pop", "words": 1},
+            "publish",
+            RETURN,
+        ]
+    )
+    assert result.safe
+
+
+@pytest.mark.parametrize(
+    "selection",
+    [
+        [{"opr": "swap"}],
+        [{"opr": "pop", "words": 1}, {"opr": "dup", "words": 1}],
+        [{"opr": "pop", "words": 2}, {"opr": "dup", "words": 2}],
+    ],
+    ids=["swap", "dup", "dup2"],
+)
+def test_secret_selection_between_preexisting_public_stack_values(selection):
+    # The unchanged arm publishes 40; the other arm selects 30 or 20.
+    publish_index = 6 + len(selection)
+    result = check_body(
+        [
+            push(10),
+            push(20),
+            push(30),
+            push(40),
+            load(0),
+            compare_zero("eq", publish_index),
+            *selection,
+            "publish",
+            {"opr": "pop", "words": 2},
+            {"opr": "pop", "words": 1},
+            RETURN,
+        ]
+    )
+    assert [(d.offset, d.kind) for d in result.diagnostics] == [
+        (publish_index, "implicit")
+    ]
+
+
 def test_loop_revisits_guard_when_only_the_sign_set_grows():
     # The first visit brings -1 or 1. The back edge brings 0 within those same bounds.
     result = check_body(
