@@ -90,7 +90,7 @@ class AbstractInt(sexpr.AsSExpr):
 
     @classmethod
     def enclose(cls, intervals: Iterable[Interval]) -> AbstractInt:
-        """Least product value containing a nonempty collection of interval results."""
+        """Combine one or more ranges and keep the signs that occur in them."""
         it = iter(intervals)
         bounds = next(it)
         signs = SignSet.covering(bounds)

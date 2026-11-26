@@ -36,7 +36,7 @@ def report_security(result: Result) -> None:
         )
     leaks = any(d.kind in ("explicit", "implicit") for d in result.diagnostics)
     for query in jpamb.QUERIES:
-        # This domain answers confidentiality, not numeric runtime outcomes.
+        # JPAMB uses the assertion error query for confidentiality leaks.
         prediction = "unknown"
         if query == "assertion error":
             prediction = "maybe" if leaks else "no" if result.safe else "unknown"

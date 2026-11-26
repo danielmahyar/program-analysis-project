@@ -221,10 +221,10 @@ def control_flow(opcodes: list[jvm.Opcode]) -> tuple[tuple[int, ...], ...]:
 def postdominators(
     successors: tuple[tuple[int, ...], ...],
 ) -> tuple[frozenset[int], ...]:
-    """Compute control scopes, retaining context conservatively in non-exiting SCCs.
+    """Find where each branch stops controlling execution.
 
-    Nodes without a path to EXIT have only themselves as post-dominators. This
-    avoids arbitrary context restoration inside an infinite cycle.
+    A node with no path to the exit has only itself as a post-dominator.
+    This keeps the guard's label active inside an endless loop.
     """
     n = len(successors)
     exiting = {n}
@@ -334,8 +334,7 @@ class AbstractInterpreter:
                 initial[slot]["conf"], lattice.bot, AbstractInt(interval)
             )
         state = State(tuple(locals_))
-        # Every parameter has a fixed label: its @Sec, or else the class's
-        # input default (Public in every case class). Writes are certified.
+        # Later writes to a parameter must respect its @Sec or the class input default.
         constraints = declared.param_constraints or (None,) * len(slots)
         clearances = {
             slot: (label if label is not None else initial[slot])["conf"]
@@ -415,12 +414,11 @@ class AbstractInterpreter:
     def assign(self, pc: PC, state: State, slot: int, value: Value) -> State:
         value = value.under(state.pc(self.lattice), self.lattice)
         if slot in self.local_clearances:
-            # Security certification: L(e) ∪ pc ⊑ L_fixed. A fixed label is
-            # never inferred, so the slot keeps it whether or not the check holds.
+            # Check the value and active guard against the slot's declared clearance.
             fixed = self.local_clearances[slot]
             self.check_flow(pc, value, state.pc(self.lattice), fixed, f"local {slot}")
             return state.store(slot, Value(fixed, self.lattice.bot, value.number))
-        # Unannotated locals infer their label: strong update L(e) ∪ pc.
+        # Other locals take the label of the guarded assignment.
         return state.store(slot, value)
 
     def branch(
