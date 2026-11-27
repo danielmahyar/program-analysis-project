@@ -71,3 +71,46 @@ def test_confidentiality_prediction(method, expected):
     output = run(f"jpamb.cases.{method}")
     predictions = dict(line.split(";") for line in output.splitlines())
     assert predictions["assertion error"] == expected
+
+
+@pytest.mark.parametrize(
+    ("method", "expected_ae", "expected_ok"),
+    [
+        # Unconditional leaks: every feasible path definitely leaks -> ok cannot happen.
+        ("BasicLeaks.explicitDirect:(I)V", "maybe", "no"),
+        ("BasicLeaks.explicitReturn:(I)I", "maybe", "no"),
+        ("BasicLeaks.implicitIfElse:(I)V", "maybe", "no"),
+        ("BasicLeaks.implicitReturn:(I)I", "maybe", "no"),
+        ("AdvancedLeaks.ternaryImplicitLeak:(I)V", "maybe", "no"),
+        ("Hospital.process:(II)V", "maybe", "no"),
+        ("Hospital.publicRiskScore:(I)I", "maybe", "no"),
+        ("Hospital.sameValueBothBranches:(I)V", "maybe", "no"),
+        # Conditional leaks: a leak-free path to return exists -> ok-maybe.
+        ("BasicLeaks.implicitIf:(I)V", "maybe", "ok-maybe"),
+        ("BasicLeaks.implicitWhile:(I)V", "maybe", "ok-maybe"),
+        ("BasicLeaks.leakAfterBackEdge:(II)V", "maybe", "ok-maybe"),
+        ("AdvancedLeaks.doWhileLeak:(I)V", "maybe", "ok-maybe"),
+        ("AdvancedLeaks.earlyReturnBeforeSink:(I)V", "maybe", "ok-maybe"),
+        ("AdvancedLeaks.continueSkipsSink:(I)V", "maybe", "ok-maybe"),
+        ("FuzzingChallenges.stagedMask3:(IIII)V", "maybe", "ok-maybe"),
+        ("FuzzingChallenges.opaquePair17:(III)V", "maybe", "ok-maybe"),
+        ("Hospital.implicitCompartmentLeak:(I)V", "maybe", "ok-maybe"),
+        # Safe methods: no leaks and reachable return -> ok-safe.
+        ("BasicLeaks.explicitDirectSafe:(I)V", "no", "ok-safe"),
+        ("BasicLeaks.skippedLoop:(I)V", "no", "ok-safe"),
+        ("AdvancedLeaks.computedDeadBranchSafe:(I)V", "no", "ok-safe"),
+        ("FuzzingChallenges.stagedMaskSafe:(IIII)V", "no", "ok-safe"),
+        ("Hospital.deadBranchLeak:(I)V", "no", "ok-safe"),
+        # Unsupported class without lattice -> unknown on both.
+        ("Simple.justReturn:()I", "unknown", "unknown"),
+    ],
+)
+def test_ok_and_runtime_predictions(method, expected_ae, expected_ok):
+    output = run(f"jpamb.cases.{method}")
+    predictions = dict(line.split(";") for line in output.splitlines())
+    assert predictions["assertion error"] == expected_ae
+    assert predictions["ok"] == expected_ok
+    if expected_ae != "unknown":
+        assert predictions["divide by zero"] == "no"
+        assert predictions["null pointer"] == "no"
+        assert predictions["out of bounds"] == "no"

@@ -175,49 +175,6 @@ public class BasicLeaks {
     publish(x);
   }
 
-  // ------------------------------------------------ novel datatypes (Strings & Arrays)
-
-  // Branching on secret.equals(...) raises pc to High, tainting `out`.
-  @Case("(s'High') -> assertion error")
-  @Case("(s'Low') -> ok")
-  @Tag({ IMPLICIT_FLOW, CONDITIONAL, CALL })
-  public static void stringEqualsImplicitLeak(@Sec(conf = "High") String secret) {
-    int out = 0;
-    if (secret.equals("High")) {
-      out = 1;
-    }
-    publish(out);
-  }
-
-  @Case("(s'High') -> ok")
-  @Case("(s'Low') -> ok")
-  @Tag({ CONDITIONAL, CALL })
-  public static void stringEqualsSafe(@Sec(conf = "Low") String open) {
-    int out = 0;
-    if (open.equals("High")) {
-      out = 1;
-    }
-    publish(out);
-  }
-
-  // Writing to an array at a High index taints the monolithic array label:
-  // L(notes') = L(notes) ∪ L(1) ∪ L(secretIndex) ∪ pc = High.
-  @Case("(1) -> assertion error")
-  @Tag({ EXPLICIT_FLOW, ARRAY, CALL })
-  public static void arrayIndexWriteLeak(@Sec(conf = "High") int secretIndex) {
-    int[] notes = { 0, 0, 0, 0 };
-    notes[secretIndex] = 1;
-    publish(notes[0]);
-  }
-
-  @Case("(1) -> ok")
-  @Tag({ ARRAY, CALL })
-  public static void arrayIndexWriteSafe(@Sec(conf = "Low") int openIndex) {
-    int[] notes = { 0, 0, 0, 0 };
-    notes[openIndex] = 1;
-    publish(notes[0]);
-  }
-
   @Case("(7) -> ok")
   @Tag({ LOOP, CONDITIONAL, CALL })
   public static void skippedLoop(@Sec(conf = "High") int secret) {

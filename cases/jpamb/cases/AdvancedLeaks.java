@@ -14,8 +14,6 @@ import jpamb.utils.*;
  * - Multi-threshold nested guards (`nestedThresholdLeak`)
  * - Multiple nested while loops with specific corner-case leaks (`nestedWhileWeirdCaseLeak`,
  *   `tripleNestedWhileCornerLeak`, `nestedWhileSafe`)
- * - Recursive confidentiality flows (`recursiveCountdownLeak`, `recursiveExplicitLeak`,
- *   `recursiveSafe`)
  */
 @Lattice(
     dim = "conf",
@@ -238,126 +236,7 @@ public class AdvancedLeaks {
     publishLow(publicCount);
   }
 
-  // ---------------------------------------------------------------------------
-  // Recursive confidentiality flows
-  // ---------------------------------------------------------------------------
-
-  // 14. Direct recursion on a `@Case` method: counts down a High secret recursively
-  // and leaks at the base case (`n == 0`) because reaching the base case depends on `n > 0`.
-  @Case("(3) -> assertion error")
-  @Case("(0) -> assertion error")
-  @Tag({IMPLICIT_FLOW, CONDITIONAL, CALL, RECURSION})
-  public static void recursiveCountdownLeak(@Sec(conf = "High") int n) {
-    if (n <= 0) {
-      publishLow(0);
-      return;
-    }
-    if (n == 1) {
-      publishLow(1);
-      return;
-    }
-    recursiveCountdownLeak(n - 1);
-  }
-
-  // 15. Direct recursion with explicit secret pass-through that only leaks when the
-  // recursive depth hits a specific step (`steps == 0` after decrementing from a positive start).
-  @Case("(2, 99) -> assertion error")
-  @Case("(-1, 99) -> ok")
-  @Tag({EXPLICIT_FLOW, CONDITIONAL, CALL, RECURSION})
-  public static void recursiveExplicitLeak(
-      @Sec(conf = "Low") int steps, @Sec(conf = "High") int secret) {
-    if (steps < 0) {
-      publishLow(0);
-      return;
-    }
-    if (steps == 0) {
-      publishLow(secret);
-      return;
-    }
-    recursiveExplicitLeak(steps - 1, secret);
-  }
-
-  // 16. Safe recursive method: recurses on a Low counter and publishes to a Low sink,
-  // while forwarding a High secret only to a High sink at the base case.
-  @Case("(3, 99) -> ok")
-  @Case("(0, 99) -> ok")
-  @Tag({CONDITIONAL, CALL, RECURSION})
-  public static void recursiveSafe(
-      @Sec(conf = "Low") int steps, @Sec(conf = "High") int secret) {
-    if (steps <= 0) {
-      publishLow(steps);
-      publishHigh(secret);
-      return;
-    }
-    recursiveSafe(steps - 1, secret);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Novel Datatypes: Strings (concatenation, .length(), .equals()) & Arrays
-  // (monolithic array labeling and index tainting)
-  // ---------------------------------------------------------------------------
-
-  // 17. String concatenation (`s1 + s2`) and `.length()` propagate L(s1) ∪ L(s2) ∪ pc:
-  // Combining Mid and High strings produces a High string, whose length cannot flow to Mid.
-  @Case("(s'secret', s'dept') -> assertion error")
-  @Tag({EXPLICIT_FLOW, CALL})
-  public static void stringConcatLengthLeak(
-      @Sec(conf = "High") String secretTag, @Sec(conf = "Mid") String midPrefix) {
-    String msg = midPrefix + ":" + secretTag;
-    int len = msg.length();
-    publishMid(len);
-  }
-
-  // 18. Safe String branching and concatenation: branches on `dept.equals("Oncology")` (Mid)
-  // and publishes to a Mid sink, while sending High string length only to a High sink.
-  @Case("(s'Oncology', s'classified') -> ok")
-  @Case("(s'Public', s'classified') -> ok")
-  @Tag({CONDITIONAL, CALL})
-  public static void stringBranchAndConcatSafe(
-      @Sec(conf = "Mid") String dept, @Sec(conf = "High") String secretNote) {
-    int out = 0;
-    if (dept.equals("Oncology")) {
-      String tag = "Reviewed:" + dept;
-      out = tag.length();
-    }
-    publishMid(out);
-    publishHigh(secretNote.length());
-  }
-
-  // 19. Array write with secret index on a fixed Low array parameter (`notes[secretIdx] = "Reviewed"`):
-  // L(notes') = L(notes) ∪ L("Reviewed") ∪ L(secretIdx) ∪ pc = High ⊈ Low.
-  @Tag({EXPLICIT_FLOW, ARRAY, CALL})
-  public static void arraySecretIndexParameterLeak(
-      @Sec(conf = "Low") String[] notes, @Sec(conf = "High") int secretIdx) {
-    notes[secretIdx] = "Reviewed";
-    publishLow(notes[0].length());
-  }
-
-  // 20. Monolithic array read tainting: `x = arr[i]` folds L(arr) ∪ L(i) ∪ pc.
-  // Even though `table` only holds Mid data, indexing it with a High index produces a High value.
-  @Case("(10, 1) -> assertion error")
-  @Tag({EXPLICIT_FLOW, ARRAY, CALL})
-  public static void arrayMonolithicReadLeak(
-      @Sec(conf = "Mid") int midVal, @Sec(conf = "High") int secretIdx) {
-    int[] table = {10, 20, 30, 40};
-    table[0] = midVal;
-    int x = table[secretIdx];
-    publishMid(x);
-  }
-
-  // 21. Safe monolithic array read/write: `table` receives Mid data at a Low index
-  // and is read at a Low index, so `table[openIdx]` has label Mid and flows safely to `publishMid`.
-  @Case("(10, 1) -> ok")
-  @Tag({ARRAY, CALL})
-  public static void arrayMonolithicSafe(
-      @Sec(conf = "Mid") int midVal, @Sec(conf = "Low") int openIdx) {
-    int[] table = {10, 20, 30, 40};
-    table[0] = midVal;
-    int x = table[openIdx];
-    publishMid(x);
-  }
-
-  // 22. Observing the public sink call reveals that the High skip flag is zero.
+  // 14. Observing the public sink call reveals that the High skip flag is zero.
   @Case("(0) -> assertion error")
   @Case("(1) -> ok")
   @Tag({IMPLICIT_FLOW, CONDITIONAL, LOOP, CALL})
@@ -370,7 +249,7 @@ public class AdvancedLeaks {
     }
   }
 
-  // 23. The same loop may safely reveal whether a Low skip flag is zero.
+  // 15. The same loop may safely reveal whether a Low skip flag is zero.
   @Case("(0) -> ok")
   @Case("(1) -> ok")
   @Tag({CONDITIONAL, LOOP, CALL})

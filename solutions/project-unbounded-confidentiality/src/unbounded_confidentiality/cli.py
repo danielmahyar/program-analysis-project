@@ -36,8 +36,23 @@ def report_security(result: Result) -> None:
         )
     leaks = any(d.kind in ("explicit", "implicit") for d in result.diagnostics)
     for query in jpamb.QUERIES:
-        # JPAMB uses the assertion error query for confidentiality leaks.
         prediction = "unknown"
         if query == "assertion error":
             prediction = "maybe" if leaks else "no" if result.safe else "unknown"
+        elif query == "ok":
+            if result.complete and result.can_return_ok is not None:
+                if not result.can_return_ok:
+                    prediction = "no"
+                elif result.safe:
+                    prediction = "ok-safe"
+                else:
+                    prediction = "ok-maybe"
+        elif query == "divide by zero":
+            if result.complete and result.possible_div_zero is not None:
+                prediction = "maybe-div0" if result.possible_div_zero else "no"
+        elif query in ("null pointer", "out of bounds"):
+            if result.complete:
+                prediction = "no"
+        elif query == "*" and result.complete and result.has_reachable_cycle is False:
+            prediction = "no"
         print(f"{query};{prediction}")

@@ -72,6 +72,11 @@ def text(node: tree_sitter.Node | None) -> str:
     return node.text.decode() if node is not None and node.text is not None else ""
 
 
+def i32(x: int) -> int:
+    """Wrap an integer using JVM signed 32-bit two's-complement semantics."""
+    return ((x + (1 << 31)) % (1 << 32)) - (1 << 31)
+
+
 def merge_consts(*cenvs: ConstEnv) -> ConstEnv:
     """Merge constant environments at a join point: keep a constant only if all
     incoming paths agree on the exact same type and value."""
@@ -136,9 +141,11 @@ class Analysis:
                 | "octal_integer_literal"
                 | "binary_integer_literal"
             ):
-                raw = text(node).replace("_", "").rstrip("lL")
+                raw = text(node).replace("_", "")
+                if raw.endswith(("l", "L")):
+                    return None
                 try:
-                    return int(raw, 0)
+                    return i32(int(raw, 0))
                 except ValueError:
                     return None
             case "identifier":
@@ -172,9 +179,11 @@ class Analysis:
                 if raw_text.startswith("!") and isinstance(op_val, bool):
                     return not op_val
                 if raw_text.startswith("-") and type(op_val) is int:
-                    return -op_val
+                    return i32(-op_val)
                 if raw_text.startswith("+") and type(op_val) is int:
-                    return op_val
+                    return i32(op_val)
+                if raw_text.startswith("~") and type(op_val) is int:
+                    return i32(~op_val)
                 return None
             case "binary_expression":
                 op_node = node.child_by_field_name("operator")
@@ -190,17 +199,29 @@ class Analysis:
                 if type(left) is int and type(right) is int:
                     match op:
                         case "+":
-                            return left + right
+                            return i32(left + right)
                         case "-":
-                            return left - right
+                            return i32(left - right)
                         case "*":
-                            return left * right
+                            return i32(left * right)
                         case "/" if right != 0:
                             q = abs(left) // abs(right)
-                            return q if (left < 0) == (right < 0) else -q
+                            return i32(q if (left < 0) == (right < 0) else -q)
                         case "%" if right != 0:
                             r = abs(left) % abs(right)
-                            return r if left >= 0 else -r
+                            return i32(r if left >= 0 else -r)
+                        case "&":
+                            return i32(left & right)
+                        case "|":
+                            return i32(left | right)
+                        case "^":
+                            return i32(left ^ right)
+                        case "<<":
+                            return i32(left << (right & 31))
+                        case ">>":
+                            return i32(left >> (right & 31))
+                        case ">>>":
+                            return i32((left & 0xFFFFFFFF) >> (right & 31))
                         case "==":
                             return left == right
                         case "!=":
@@ -225,8 +246,16 @@ class Analysis:
                             return left == right
                 if isinstance(left, str) or isinstance(right, str):
                     if op == "+":
-                        l_str = ("true" if left else "false") if isinstance(left, bool) else str(left)
-                        r_str = ("true" if right else "false") if isinstance(right, bool) else str(right)
+                        l_str = (
+                            ("true" if left else "false")
+                            if isinstance(left, bool)
+                            else str(left)
+                        )
+                        r_str = (
+                            ("true" if right else "false")
+                            if isinstance(right, bool)
+                            else str(right)
+                        )
                         return l_str + r_str
                     if isinstance(left, str) and isinstance(right, str):
                         if op == "==":
@@ -286,7 +315,11 @@ class Analysis:
                 return rules.assign(rules.binary(arr_lbl, idx_lbl), pc)
             case "field_access":  # arr.length: inherits receiver array/object label
                 obj_node = node.child_by_field_name("object")
-                return self.expr(obj_node, env, pc) if obj_node is not None else rules.constant()
+                return (
+                    self.expr(obj_node, env, pc)
+                    if obj_node is not None
+                    else rules.constant()
+                )
             case _:  # anything else (e.g., array_creation_expression, array_initializer): union of parts
                 label = rules.constant()
                 for child in node.named_children:
@@ -546,11 +579,14 @@ class Analysis:
                 return env, cur_pc
 
             case "local_variable_declaration":  # int x = e;
+                decl_type = text(node.child_by_field_name("type"))
                 for decl in node.children_by_field_name("declarator"):
                     value = decl.child_by_field_name("value")
                     name = text(decl.child_by_field_name("name"))
                     label = self.expr(value, env, pc) if value else rules.constant()
                     cval = self.eval_const(value) if value else None
+                    if type(cval) is int and decl_type != "int":
+                        cval = None
                     self.const_env = {**self.const_env, name: cval}
                     env = {**env, name: rules.assign(label, pc)}
                 return env, pc
@@ -758,11 +794,11 @@ class Analysis:
                 if type(old_c) is int and type(cval) is int:
                     match op:
                         case "+=":
-                            cval = old_c + cval
+                            cval = i32(old_c + cval)
                         case "-=":
-                            cval = old_c - cval
+                            cval = i32(old_c - cval)
                         case "*=":
-                            cval = old_c * cval
+                            cval = i32(old_c * cval)
                         case _:
                             cval = None
                 elif isinstance(old_c, str) and isinstance(cval, str) and op == "+=":
@@ -782,7 +818,7 @@ class Analysis:
             old_c = self.const_env.get(name)
             cval: ConstVal = None
             if type(old_c) is int:
-                cval = old_c + 1 if "++" in text(e) else old_c - 1
+                cval = i32(old_c + 1) if "++" in text(e) else i32(old_c - 1)
             return self.write(e, name, label, env, pc, cval)
         self.expr(e, env, pc)  # e.g. a call to a sink
         return env
@@ -852,9 +888,7 @@ def _method_policy_from_ast(
         param_labels.append(
             sec_lbl if sec_lbl is not None else policy.product_lattice.default_label
         )
-    mod_node = next(
-        (c for c in node.named_children if c.type == "modifiers"), None
-    )
+    mod_node = next((c for c in node.named_children if c.type == "modifiers"), None)
     return_clearance = _extract_sec_annotation(mod_node, policy)
     return MethodSecurityPolicy(
         name=methodid.extension.name,

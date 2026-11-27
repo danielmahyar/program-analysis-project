@@ -16,7 +16,7 @@ import sexpr
 from jpamb.security import ClassSecurityPolicy, SecurityLattice
 from jvm.state import PC
 
-from .integer import AbstractInt
+from .integer import AbstractInt, SignSet
 from .interval import INT_MAX, INT_MIN, Interval
 from .interval_branches import NEGATED_CONDITION, refine_integers
 
@@ -48,9 +48,14 @@ class Value(sexpr.AsSExpr):
     number: AbstractInt = field(default_factory=AbstractInt.top)
     # A stack value may still be equal to the current contents of a local slot.
     source_slot: int | None = None
+    # Lower-bound (must) confidentiality label that holds on every reaching path.
+    must: str | None = None
 
     def label(self, lattice: SecurityLattice) -> str:
         return lattice.join(self.data, self.control)
+
+    def must_label(self, lattice: SecurityLattice) -> str:
+        return self.must if self.must is not None else lattice.bot
 
     def join(
         self,
@@ -68,10 +73,16 @@ class Value(sexpr.AsSExpr):
             lattice.join(self.control, other.control),
             number,
             self.source_slot if self.source_slot == other.source_slot else None,
+            lattice.meet(self.must_label(lattice), other.must_label(lattice)),
         )
 
-    def under(self, pc: str, lattice: SecurityLattice) -> Value:
-        return replace(self, control=lattice.join(self.control, pc))
+    def under(
+        self, pc: str, lattice: SecurityLattice, must_pc: str | None = None
+    ) -> Value:
+        must = self.must_label(lattice)
+        if must_pc is not None:
+            must = lattice.join(must, must_pc)
+        return replace(self, control=lattice.join(self.control, pc), must=must)
 
 
 @dataclass(frozen=True)
@@ -81,9 +92,14 @@ class State(sexpr.AsSExpr):
     stack: tuple[Value, ...] = ()
     # One entry per controlling branch; bounded even on repeated loop visits.
     context: tuple[tuple[int, str], ...] = ()
+    # Lower-bound controlling branch contexts active on every reaching path.
+    must_context: tuple[tuple[int, str], ...] = ()
 
     def pc(self, lattice: SecurityLattice) -> str:
         return lattice.join_all(label for _, label in self.context)
+
+    def must_pc(self, lattice: SecurityLattice) -> str:
+        return lattice.join_all(label for _, label in self.must_context)
 
     def join(
         self,
@@ -98,6 +114,16 @@ class State(sexpr.AsSExpr):
         context = dict(self.context)
         for branch, label in other.context:
             context[branch] = lattice.join(context.get(branch, lattice.bot), label)
+        self_must = dict(self.must_context)
+        other_must = dict(other.must_context)
+        must_context = tuple(
+            sorted(
+                (branch, met)
+                for branch in self_must.keys() & other_must.keys()
+                if (met := lattice.meet(self_must[branch], other_must[branch]))
+                != lattice.bot
+            )
+        )
         return State(
             tuple(
                 a.join(b, lattice, widening_thresholds)
@@ -110,6 +136,7 @@ class State(sexpr.AsSExpr):
                 for a, b in zip(self.stack, other.stack)
             ),
             tuple(sorted(context.items())),
+            must_context,
         )
 
     def pop(self, count: int = 1) -> tuple[tuple[Value, ...], State]:
@@ -180,6 +207,9 @@ class Result:
     states: dict[PC, State]
     steps: int
     return_label: str | None = None
+    can_return_ok: bool | None = None
+    possible_div_zero: bool | None = None
+    has_reachable_cycle: bool | None = None
 
     @property
     def safe(self) -> bool:
@@ -331,7 +361,10 @@ class AbstractInterpreter:
                 Interval(0, 1) if descriptor == "Z" else Interval.top().cast(descriptor)
             )
             locals_[slot] = Value(
-                initial[slot]["conf"], lattice.bot, AbstractInt(interval)
+                initial[slot]["conf"],
+                lattice.bot,
+                AbstractInt(interval),
+                must=initial[slot]["conf"],
             )
         state = State(tuple(locals_))
         # Later writes to a parameter must respect its @Sec or the class input default.
@@ -391,7 +424,12 @@ class AbstractInterpreter:
             for branch, label in state.context
             if index == branch or index not in self.postdom[branch]
         )
-        return replace(state, context=retained)
+        retained_must = tuple(
+            (branch, label)
+            for branch, label in state.must_context
+            if index == branch or index not in self.postdom[branch]
+        )
+        return replace(state, context=retained, must_context=retained_must)
 
     def check_flow(
         self, pc: PC, value: Value, context: str, allowed: str, target: str
@@ -412,13 +450,17 @@ class AbstractInterpreter:
         return False
 
     def assign(self, pc: PC, state: State, slot: int, value: Value) -> State:
-        value = value.under(state.pc(self.lattice), self.lattice)
+        context = state.pc(self.lattice)
+        must_ctx = state.must_pc(self.lattice)
+        value = value.under(context, self.lattice, must_ctx)
         if slot in self.local_clearances:
             # Check the value and active guard against the slot's declared clearance.
             fixed = self.local_clearances[slot]
-            self.check_flow(pc, value, state.pc(self.lattice), fixed, f"local {slot}")
-            return state.store(slot, Value(fixed, self.lattice.bot, value.number))
-        # Other locals take the label of the guarded assignment.
+            self.check_flow(pc, value, context, fixed, f"local {slot}")
+            return state.store(
+                slot, Value(fixed, self.lattice.bot, value.number, must=fixed)
+            )
+        # Unannotated locals infer their label: strong update L(e) ∪ pc.
         return state.store(slot, value)
 
     def branch(
@@ -429,7 +471,12 @@ class AbstractInterpreter:
         right = (
             operands[1]
             if len(operands) == 2
-            else Value(self.lattice.bot, self.lattice.bot, AbstractInt.constant(0))
+            else Value(
+                self.lattice.bot,
+                self.lattice.bot,
+                AbstractInt.constant(0),
+                must=self.lattice.bot,
+            )
         )
         guard = self.lattice.join_all(
             (
@@ -440,7 +487,23 @@ class AbstractInterpreter:
         )
         controls = dict(after.context)
         controls[pc.offset] = guard
-        after = replace(after, context=tuple(sorted(controls.items())))
+        must_guard = self.lattice.join_all(
+            (
+                state.must_pc(self.lattice),
+                left.must_label(self.lattice),
+                right.must_label(self.lattice),
+            )
+        )
+        must_controls = dict(after.must_context)
+        if must_guard != self.lattice.bot:
+            must_controls[pc.offset] = must_guard
+        else:
+            must_controls.pop(pc.offset, None)
+        after = replace(
+            after,
+            context=tuple(sorted(controls.items())),
+            must_context=tuple(sorted(must_controls.items())),
+        )
 
         condition = str(op.condition)
         if condition not in NEGATED_CONDITION:
@@ -464,6 +527,7 @@ class AbstractInterpreter:
     def transfer(self, pc: PC, state: State) -> tuple[list[tuple[PC, State]], set[str]]:
         lattice = self.lattice
         context = state.pc(lattice)
+        must_ctx = state.must_pc(lattice)
         op = self.method.opcodes[pc.offset]
         finals = set()
         match op:
@@ -476,12 +540,20 @@ class AbstractInterpreter:
                         "integer constant outside the JVM int range"
                     )
                 after = state.push(
-                    Value(lattice.bot, context, AbstractInt.constant(value))
+                    Value(
+                        lattice.bot,
+                        context,
+                        AbstractInt.constant(value),
+                        must=must_ctx,
+                    )
                 )
             case jvm.Load(type=type_, index=slot):
                 require_int(type_)
                 after = state.push(
-                    replace(state.load(slot).under(context, lattice), source_slot=slot)
+                    replace(
+                        state.load(slot).under(context, lattice, must_ctx),
+                        source_slot=slot,
+                    )
                 )
             case jvm.Store(type=type_, index=slot):
                 require_int(type_)
@@ -509,6 +581,13 @@ class AbstractInterpreter:
                         lattice.join(left.data, right.data),
                         lattice.join_all((left.control, right.control, context)),
                         number,
+                        must=lattice.join_all(
+                            (
+                                left.must_label(lattice),
+                                right.must_label(lattice),
+                                must_ctx,
+                            )
+                        ),
                     )
                 )
             case jvm.Negate(type=type_):
@@ -516,7 +595,7 @@ class AbstractInterpreter:
                 (value,), after = state.pop()
                 after = after.push(
                     replace(
-                        value.under(context, lattice),
+                        value.under(context, lattice, must_ctx),
                         number=value.number.negate(),
                         source_slot=None,
                     )
@@ -527,7 +606,7 @@ class AbstractInterpreter:
                 (value,), after = state.pop()
                 after = after.push(
                     replace(
-                        value.under(context, lattice),
+                        value.under(context, lattice, must_ctx),
                         number=value.number.cast(target.encode()),
                         source_slot=None,
                     )
@@ -541,7 +620,9 @@ class AbstractInterpreter:
                     raise UnsupportedInstruction(f"unsupported dup width {words}")
                 values, _ = state.pop(words)
                 # Only the appended copies occupy positions written under this guard.
-                after = state.push(*(value.under(context, lattice) for value in values))
+                after = state.push(
+                    *(value.under(context, lattice, must_ctx) for value in values)
+                )
             case jvm.Pop(words=words):
                 if words not in (1, 2):
                     raise UnsupportedInstruction(f"unsupported pop width {words}")
@@ -549,7 +630,8 @@ class AbstractInterpreter:
             case jvm.Swap():
                 (left, right), after = state.pop(2)
                 after = after.push(
-                    right.under(context, lattice), left.under(context, lattice)
+                    right.under(context, lattice, must_ctx),
+                    left.under(context, lattice, must_ctx),
                 )
             case jvm.InvokeStatic(method=called):
                 sink = self.policy.sink(called)
@@ -605,7 +687,7 @@ class AbstractInterpreter:
                     (value,), after = state.pop()
                     if after.stack:
                         raise UnsupportedInstruction("extra operands at return")
-                    value = value.under(context, lattice)
+                    value = value.under(context, lattice, must_ctx)
                     self.returned = (
                         value
                         if self.returned is None
@@ -655,6 +737,108 @@ class AbstractInterpreter:
             finals = {"unknown"}
         return pc, finals
 
+    def _analyze_outcomes(self) -> tuple[bool, bool, bool]:
+        """Compute sound outcome summaries from the converged abstract states.
+
+        Returns `(can_return_ok, possible_div_zero, has_reachable_cycle)`:
+        - `can_return_ok` is False only if every feasible path from entry hits a
+          definite confidentiality violation (proven via lower-bound `must`
+          labels), definitely divides by zero, or cannot reach any `Return`.
+        - `possible_div_zero` is False only if no reachable `div`/`rem` permits 0.
+        - `has_reachable_cycle` is False only if no feasible back edge is reached.
+        """
+        lattice = self.lattice
+        reachable = {pc.offset: state for pc, state in self.states.items()}
+        definite_violations: set[int] = set()
+        feasible_edges: dict[int, tuple[int, ...]] = {}
+        possible_div_zero = False
+
+        for offset, state in reachable.items():
+            op = self.method.opcodes[offset]
+            must_pc = state.must_pc(lattice)
+
+            match op:
+                case jvm.Store(index=slot) if slot in self.local_clearances:
+                    val = state.stack[-1]
+                    if not lattice.le(
+                        lattice.join(val.must_label(lattice), must_pc),
+                        self.local_clearances[slot],
+                    ):
+                        definite_violations.add(offset)
+                    feasible_edges[offset] = self.successors[offset]
+                case jvm.Incr(index=slot) if slot in self.local_clearances:
+                    val = state.load(slot)
+                    if not lattice.le(
+                        lattice.join(val.must_label(lattice), must_pc),
+                        self.local_clearances[slot],
+                    ):
+                        definite_violations.add(offset)
+                    feasible_edges[offset] = self.successors[offset]
+                case jvm.InvokeStatic(method=called):
+                    sink = self.policy.sink(called)
+                    assert sink is not None
+                    nargs = len(sink.param_labels)
+                    args = state.stack[-nargs:] if nargs else ()
+                    if any(
+                        not lattice.le(
+                            lattice.join(arg.must_label(lattice), must_pc),
+                            clearance["conf"],
+                        )
+                        for arg, clearance in zip(args, sink.param_labels)
+                    ):
+                        definite_violations.add(offset)
+                    feasible_edges[offset] = self.successors[offset]
+                case jvm.Return(type=type_):
+                    if type_ is not None and self.return_clearance is not None:
+                        val = state.stack[-1]
+                        if not lattice.le(
+                            lattice.join(val.must_label(lattice), must_pc),
+                            self.return_clearance,
+                        ):
+                            definite_violations.add(offset)
+                    feasible_edges[offset] = ()
+                case jvm.If() | jvm.Ifz():
+                    pc = PC(self.method.id, offset)
+                    feasible_edges[offset] = tuple(
+                        target.offset for target, _ in self.branch(pc, state, op)
+                    )
+                case jvm.Binary() | jvm.Bitopr():
+                    operator = jvm.BinaryOpr[op.operant.name]
+                    left, right = state.stack[-2], state.stack[-1]
+                    if (
+                        operator in (jvm.BinaryOpr.Div, jvm.BinaryOpr.Rem)
+                        and SignSet.ZERO in right.number.signs
+                    ):
+                        possible_div_zero = True
+                    if left.number.binary(operator, right.number) is None:
+                        feasible_edges[offset] = ()
+                    else:
+                        feasible_edges[offset] = self.successors[offset]
+                case jvm.Throw():
+                    feasible_edges[offset] = ()
+                case _:
+                    feasible_edges[offset] = self.successors[offset]
+
+        can_return_ok = False
+        has_reachable_cycle = False
+        if 0 in reachable and 0 not in definite_violations:
+            visited = {0}
+            queue = deque([0])
+            while queue:
+                curr = queue.popleft()
+                if isinstance(self.method.opcodes[curr], jvm.Return):
+                    can_return_ok = True
+                for nxt in feasible_edges.get(curr, ()):
+                    if nxt in definite_violations or nxt not in reachable:
+                        continue
+                    if (curr, nxt) in self.back_edges:
+                        has_reachable_cycle = True
+                    if nxt not in visited:
+                        visited.add(nxt)
+                        queue.append(nxt)
+
+        return can_return_ok, possible_div_zero, has_reachable_cycle
+
     def result(self) -> Result:
         diagnostics = set(self.diagnostics)
         if self.worklist:
@@ -668,12 +852,24 @@ class AbstractInterpreter:
             status = "violation"
         else:
             status = "safe"
+        can_return_ok: bool | None = None
+        possible_div_zero: bool | None = None
+        has_reachable_cycle: bool | None = None
+        if status in ("safe", "violation"):
+            (
+                can_return_ok,
+                possible_div_zero,
+                has_reachable_cycle,
+            ) = self._analyze_outcomes()
         return Result(
             status,
             tuple(sorted(diagnostics, key=lambda d: (d.offset, d.kind, d.message))),
             dict(self.states),
             self.steps,
             self.returned.label(self.lattice) if self.returned is not None else None,
+            can_return_ok=can_return_ok,
+            possible_div_zero=possible_div_zero,
+            has_reachable_cycle=has_reachable_cycle,
         )
 
     def run(self) -> Result:

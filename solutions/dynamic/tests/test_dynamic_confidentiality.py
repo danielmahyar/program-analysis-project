@@ -553,3 +553,40 @@ def test_analysis_entrypoint_passes_return_settings_to_the_real_runner(
     out, err = capsys.readouterr()
     assert f"{outcome};found" in out
     assert f"'{outcome}': 1" in err
+
+
+@pytest.mark.parametrize(
+    ("operant", "inputs", "expected"),
+    [
+        ("and", (11, 7), "assertion error"),
+        ("and", (8, 7), "ok"),
+        ("xor", (17, 17), "ok"),
+        ("xor", (17, 18), "assertion error"),
+        ("or", (0, 3), "assertion error"),
+        ("shl", (1, 2), "assertion error"),
+        ("shr", (8, 2), "assertion error"),
+        ("ushr", (-1, 31), "assertion error"),
+    ],
+)
+def test_bitopr_instructions_execute_concretely_with_security_monitor(
+    operant, inputs, expected
+):
+    # Branch on `(a <bitop> b) == 0`; if non-zero, pass a High secret to a Low sink.
+    result, _ = execute(
+        [
+            load(0),
+            load(1),
+            {"opr": "bitopr", "type": "int", "operant": operant},
+            branch(6, "eq"),
+            load(2),
+            invoke(),
+            VOID,
+        ],
+        (*inputs, 99),
+        labels=("Public", "Public", "Oncology"),
+        returns=False,
+        extra_methods=[sink(label="Public")],
+    )
+    assert result.status == "completed"
+    assert result.outcome == expected
+    assert bool(result.violations) == (expected == "assertion error")
