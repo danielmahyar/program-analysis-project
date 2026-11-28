@@ -214,4 +214,62 @@ public class PrecisionBenchmarks {
       publish(secret);
     }
   }
+
+  // =========================================================================
+  // Family 5: Large counting loop for threshold widening
+  // =========================================================================
+
+  // 15. Counting to 1,000,000: threshold widening jumps directly to 1,000,000 and proves
+  // i < 1,000,000 unreachable at exit, whereas Dynamic hits its step limit and Syntactic warns.
+  @Case("(99) -> ok")
+  @Tag({LOOP, CONDITIONAL, CALL})
+  public static void largeLoopWideningSafe(@Sec(conf = "High") int secret) {
+    int i = 0;
+    while (i < 1000000) {
+      i = i + 1;
+    }
+    if (i < 1000000) {
+      publish(secret);
+    }
+  }
+
+  // =========================================================================
+  // Family 6: Interprocedural helper calls and recursion boundaries
+  // =========================================================================
+
+  static int passthroughHelper(int value) {
+    return value;
+  }
+
+  // 16. Same-class helper forwarding a High secret to a Low sink.
+  @Case("(99) -> assertion error")
+  @Tag({EXPLICIT_FLOW, CALL})
+  public static void helperPassthroughLeak(@Sec(conf = "High") int secret) {
+    int forwarded = passthroughHelper(secret);
+    publish(forwarded);
+  }
+
+  // 17. Same-class helper forwarding a Low value safely.
+  @Case("(7, 99) -> ok")
+  @Tag({CALL})
+  public static void helperPassthroughSafe(int open, @Sec(conf = "High") int secret) {
+    int forwarded = passthroughHelper(open);
+    publish(forwarded);
+  }
+
+  // 18. Tail-recursive countdown to a leaking base case.
+  @Case("(2, 99) -> assertion error")
+  @Case("(-1, 99) -> ok")
+  @Tag({EXPLICIT_FLOW, CONDITIONAL, CALL, RECURSION})
+  public static void recursiveCountdownLeak(int steps, @Sec(conf = "High") int secret) {
+    if (steps < 0) {
+      publish(0);
+      return;
+    }
+    if (steps == 0) {
+      publish(secret);
+      return;
+    }
+    recursiveCountdownLeak(steps - 1, secret);
+  }
 }

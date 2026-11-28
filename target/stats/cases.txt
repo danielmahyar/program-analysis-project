@@ -332,13 +332,18 @@ jpamb.cases.PrecisionBenchmarks.contradictoryRangeSafe:(II)V (0, 99) -> ok
 jpamb.cases.PrecisionBenchmarks.contradictoryRangeSafe:(II)V (20, 99) -> ok
 jpamb.cases.PrecisionBenchmarks.correlatedBranchSafe:(II)V   (0, 99) -> ok
 jpamb.cases.PrecisionBenchmarks.correlatedBranchSafe:(II)V   (1, 99) -> ok
+jpamb.cases.PrecisionBenchmarks.helperPassthroughLeak:(I)V   (99) -> assertion error
+jpamb.cases.PrecisionBenchmarks.helperPassthroughSafe:(II)V  (7, 99) -> ok
 jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe:(II)V   (0, 99) -> ok
 jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe:(II)V   (1, 99) -> ok
+jpamb.cases.PrecisionBenchmarks.largeLoopWideningSafe:(I)V   (99) -> ok
 jpamb.cases.PrecisionBenchmarks.loopExitBoundSafe:(I)V       (99) -> ok
 jpamb.cases.PrecisionBenchmarks.overflowDeadBranchSafe:(I)V  (99) -> ok
 jpamb.cases.PrecisionBenchmarks.overflowPrunedBySyntacticLeak:(I)V (99) -> assertion error
 jpamb.cases.PrecisionBenchmarks.paritySafe:(II)V             (0, 99) -> ok
 jpamb.cases.PrecisionBenchmarks.paritySafe:(II)V             (3, 99) -> ok
+jpamb.cases.PrecisionBenchmarks.recursiveCountdownLeak:(II)V (-1, 99) -> ok
+jpamb.cases.PrecisionBenchmarks.recursiveCountdownLeak:(II)V (2, 99) -> assertion error
 jpamb.cases.PrecisionBenchmarks.relationalAlwaysLeak:(II)V   (-3, 99) -> assertion error
 jpamb.cases.PrecisionBenchmarks.relationalAlwaysLeak:(II)V   (5, 99) -> assertion error
 jpamb.cases.PrecisionBenchmarks.relationalOrderSafe:(II)V    (10, 99) -> ok

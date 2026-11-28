@@ -3049,6 +3049,31 @@
     )
     :results (ok)
   )
+  :"jpamb.cases.PrecisionBenchmarks.helperPassthroughLeak!(99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.helperPassthroughLeak:(I)V" (coverage
+        :reachable (0 1 2 3 4)
+      )
+      :"jpamb.cases.PrecisionBenchmarks.passthroughHelper:(I)I" (coverage
+        :reachable (0 1)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.PrecisionBenchmarks.helperPassthroughSafe!(7, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.helperPassthroughSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5)
+      )
+      :"jpamb.cases.PrecisionBenchmarks.passthroughHelper:(I)I" (coverage
+        :reachable (0 1)
+      )
+      :"jpamb.cases.PrecisionBenchmarks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
   :"jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe!(0, 99)V" (control
     :coverage (
       :"jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe:(II)V" (coverage
@@ -3061,6 +3086,14 @@
     :coverage (
       :"jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe:(II)V" (coverage
         :reachable (0 1 2 3 5 6 7 8 11)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.largeLoopWideningSafe!(99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.largeLoopWideningSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9)
       )
     )
     :results (ok)
@@ -3104,6 +3137,25 @@
       )
     )
     :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.recursiveCountdownLeak!(-1, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+      :"jpamb.cases.PrecisionBenchmarks.recursiveCountdownLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.recursiveCountdownLeak!(2, 99)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.recursiveCountdownLeak:(II)V" (coverage
+        :reachable (0 1 5 6 7 8 10 11 12 13 14)
+      )
+    )
+    :results ("assertion error")
   )
   :"jpamb.cases.PrecisionBenchmarks.relationalAlwaysLeak!(-3, 99)V" (control
     :coverage (
@@ -5889,10 +5941,43 @@
     )
     :results (ok)
   )
+  :"jpamb.cases.PrecisionBenchmarks.helperPassthroughLeak:(I)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.helperPassthroughLeak:(I)V" (coverage
+        :reachable (0 1 2 3 4)
+      )
+      :"jpamb.cases.PrecisionBenchmarks.passthroughHelper:(I)I" (coverage
+        :reachable (0 1)
+      )
+    )
+    :results ("assertion error")
+  )
+  :"jpamb.cases.PrecisionBenchmarks.helperPassthroughSafe:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.helperPassthroughSafe:(II)V" (coverage
+        :reachable (0 1 2 3 4 5)
+      )
+      :"jpamb.cases.PrecisionBenchmarks.passthroughHelper:(I)I" (coverage
+        :reachable (0 1)
+      )
+      :"jpamb.cases.PrecisionBenchmarks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+    )
+    :results (ok)
+  )
   :"jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe:(II)V" (control
     :coverage (
       :"jpamb.cases.PrecisionBenchmarks.intervalHullHoleSafe:(II)V" (coverage
         :reachable (0 1 2 3 4 5 6 7 8 11)
+      )
+    )
+    :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.largeLoopWideningSafe:(I)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.largeLoopWideningSafe:(I)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 9)
       )
     )
     :results (ok)
@@ -5928,6 +6013,17 @@
       )
     )
     :results (ok)
+  )
+  :"jpamb.cases.PrecisionBenchmarks.recursiveCountdownLeak:(II)V" (control
+    :coverage (
+      :"jpamb.cases.PrecisionBenchmarks.publish:(I)V" (coverage
+        :reachable (0)
+      )
+      :"jpamb.cases.PrecisionBenchmarks.recursiveCountdownLeak:(II)V" (coverage
+        :reachable (0 1 2 3 4 5 6 7 8 10 11 12 13 14)
+      )
+    )
+    :results ("assertion error" ok)
   )
   :"jpamb.cases.PrecisionBenchmarks.relationalAlwaysLeak:(II)V" (control
     :coverage (

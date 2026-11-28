@@ -1,0 +1,77 @@
+% Table 1: Classification Accuracy, Soundness, JPAMB Score, and Runtime
+\begin{table*}[t]
+\centering
+\caption{Accuracy, soundness, JPAMB score, and runtime across the $N = 106$ \texttt{@Lattice} confidentiality methods (59 policy-violating, 47 policy-safe).}
+\label{tab:rq1-paradigms}
+\small
+\begin{tabular}{lrrrrrccccrrr}
+\toprule
+Paradigm & TP & FP & FN & TN & Unk & Prec. & Rec. (Cls/All) & FPR & FNR & Score & In-Proc (ms) & CLI (ms) \\
+\midrule
+Syntactic (AST) & 59 & 12 & 0 & 35 & 0 & 83.1\% & 100.0\%/100.0\% & 25.5\% & 0.0\% & 407.40 & 1.29 (0.32) & 116.9 (9.5) \\
+Unbounded Static ($I \times S \times \mathcal{L}$) & 57 & 7 & 0 & 39 & 3 & 89.1\% & 100.0\%/96.6\% & 15.2\% & 0.0\% & 545.57 & 0.46 (0.65) & 112.1 (8.2) \\
+Dynamic (Guided Fuzz, 100 runs) & 44 & 0 & 14 & 46 & 2 & 100.0\% & 75.9\%/74.6\% & 0.0\% & 24.1\% & 428.65 & 9.90 (5.15) & 132.1 (12.6) \\
+Hybrid (Warning-inclusive) & 59 & 12 & 0 & 35 & 0 & 83.1\% & 100.0\%/100.0\% & 25.5\% & 0.0\% & 439.69 & 7.02 (7.59) & 130.8 (14.2) \\
+Hybrid (Concrete-witness only) & 44 & 0 & 14 & 46 & 2 & 100.0\% & 75.9\%/74.6\% & 0.0\% & 24.1\% & 439.69 & 7.02 (7.59) & 130.8 (14.2) \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+% Table 2: Statistical Comparisons of Fuzzing Strategies and Hybrid Triage
+\begin{table*}[t]
+\centering
+\caption{Paired statistical comparisons across shared RNG seeds ($0$--$19$, 300-execution budget) and safe-method triage ($N = 47$). Family tests collapse three related variants per seed ($N=20$) to avoid pseudo-replication; $p$-values are Holm--Bonferroni adjusted.}
+\label{tab:rq2-rq3-stats}
+\small
+\begin{tabular}{llcccccc}
+\toprule
+Scope & Comparison ($A$ vs.\ $B$) & Test & $A$ vs.\ $B$ & $\Delta$ [95\% CI] & $r_{\text{rb}}$ ($h$) & Raw $p$ & Holm $p$ \\
+\midrule
+Staged guards & G vs.\ D & Wilcoxon & 30.0\% vs 6.7\% & +23.3\% [+11.7, +35.0] & +0.88 (+0.64) & $0.0044$ & $0.0352$ \\
+Staged guards & G vs.\ U & Wilcoxon & 30.0\% vs 0.0\% & +30.0\% [+20.0, +40.0] & +1.00 (+1.16) & $0.0001$ & $0.0015$ \\
+Opaque pairs & G vs.\ D & Wilcoxon & 5.0\% vs 100.0\% & -95.0\% [-100.0, -85.0] & -1.00 (-2.69) & $<0.0001$ & $<0.0001$ \\
+Opaque pairs & G vs.\ U & Wilcoxon & 5.0\% vs 5.0\% & +0.0\% [-15.0, +15.0] & +0.00 (+0.00) & $1.0000$ & $1.0000$ \\
+Opaque pairs & D vs.\ U & Wilcoxon & 100.0\% vs 5.0\% & +95.0\% [+85.0, +100.0] & +1.00 (+2.69) & $<0.0001$ & $<0.0001$ \\
+Neutral targets & G vs.\ D & Wilcoxon & 0.0\% vs 0.0\% & +0.0\% [+0.0, +0.0] & +0.00 (+0.00) & $1.0000$ & $1.0000$ \\
+Neutral targets & G vs.\ U & Wilcoxon & 0.0\% vs 45.0\% & -45.0\% [-65.0, -26.7] & -1.00 (-1.47) & $0.0002$ & $0.0024$ \\
+Neutral targets & U vs.\ D & Wilcoxon & 45.0\% vs 0.0\% & +45.0\% [+26.7, +65.0] & +1.00 (+1.47) & $0.0002$ & $0.0024$ \\
+Product targets & G vs.\ D & Wilcoxon & 0.0\% vs 0.0\% & +0.0\% [+0.0, +0.0] & +0.00 (+0.00) & $1.0000$ & $1.0000$ \\
+Product targets & G vs.\ U & Wilcoxon & 0.0\% vs 0.0\% & +0.0\% [+0.0, +0.0] & +0.00 (+0.00) & $1.0000$ & $1.0000$ \\
+Double loop & D vs.\ G & McNemar & 100.0\% vs 30.0\% & +70.0\% [+50.0, +90.0] & +1.00 (+1.98) & $0.0001$ & $0.0015$ \\
+Double loop & D vs.\ U & McNemar & 100.0\% vs 25.0\% & +75.0\% [+55.0, +95.0] & +1.00 (+2.09) & $<0.0001$ & $0.0008$ \\
+Triple loop & D vs.\ G & McNemar & 50.0\% vs 35.0\% & +15.0\% [-15.0, +45.0] & +0.33 (+0.30) & $0.5078$ & $1.0000$ \\
+Triple loop & D vs.\ U & McNemar & 50.0\% vs 15.0\% & +35.0\% [+10.0, +60.0] & +0.78 (+0.78) & $0.0391$ & $0.2734$ \\
+All 14 challenges (RQ3 discovery) & H vs.\ G & Wilcoxon & 12.1\% vs 12.1\% & +0.0\% [+0.0, +0.0] & +0.00 (+0.00) & $1.0000$ & $1.0000$ \\
+All 47 safe methods (Hybrid triage executions) & H vs.\ G & Wilcoxon & 29.4 vs 80.0 & -50.6 [-59.3, -42.0] & -1.00 (--) & $<0.0001$ & $<0.0001$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+% Table 3: Diagnostic Separating Examples
+\begin{table*}[t]
+\centering
+\caption{Diagnostic benchmark methods separating the JVM oracle, syntactic AST analysis, unbounded abstract interpretation, concrete dynamic fuzzing, and the syntactic--dynamic hybrid.}
+\label{tab:diagnostic-examples}
+\small
+\begin{tabular}{llccccc}
+\toprule
+Method & Mechanism & JVM Oracle & Syntactic & Unbounded (Steps) & Dynamic & Hybrid \\
+\midrule
+\texttt{Hospital.deadBranchLeak} & Constant dead branch & Safe & Safe & Safe (6) & Unresolved & \texttt{not-found} \\
+\texttt{BasicLeaks.skippedLoop} & Loop guard initially false & Safe & Safe & Safe (5) & Unresolved & \texttt{not-found} \\
+\texttt{PrecisionBenchmarks.signHoleRangeSafe} & Sign-hole range ($x \neq 0 \land x \ge 0$) & Safe & Warn & Safe (10) & Unresolved & \texttt{syntactic-deep-leak} \\
+\texttt{PrecisionBenchmarks.largeLoopWideningSafe} & 1,000,000-iter loop widening & Safe & Warn & Safe (30) & Unresolved & \texttt{syntactic-deep-leak} \\
+\texttt{BasicLeaks.leakAfterBackEdge} & 2nd-iteration back-edge leak & Leak & Warn & Violation (22) & Witness & \texttt{confirmed-leak} \\
+\texttt{PrecisionBenchmarks.relationalSelfCancelSafe} & Relational ($x - y = 0$) & Safe & Warn & Violation (9) & Unresolved & \texttt{syntactic-deep-leak} \\
+\texttt{PrecisionBenchmarks.intervalHullHoleSafe} & Convex hull hole ($\{1,5\} \not\ni 3$) & Safe & Warn & Violation (17) & Unresolved & \texttt{syntactic-deep-leak} \\
+\texttt{FuzzingChallenges.stagedMask3} & Staged bitmask guards & Leak & Warn & Violation (18) & Unresolved & \texttt{syntactic-deep-leak} \\
+\texttt{FuzzingChallenges.opaquePair17} & Opaque XOR/OR pair & Leak & Warn & Violation (11) & Unresolved & \texttt{syntactic-deep-leak} \\
+\texttt{FuzzingChallenges.neutralTarget19} & Computed neutral target ($7+12$) & Leak & Warn & Violation (9) & Unresolved & \texttt{syntactic-deep-leak} \\
+\texttt{FuzzingChallenges.productTarget257} & Computed product ($257 \times 263$) & Leak & Warn & Violation (12) & Unresolved & \texttt{syntactic-deep-leak} \\
+\texttt{PrecisionBenchmarks.helperPassthroughLeak} & Same-class helper leak & Leak & Warn & Unsupported (2) & Unknown & \texttt{syntactic-deep-leak} \\
+\texttt{PrecisionBenchmarks.helperPassthroughSafe} & Same-class helper safe & Safe & Safe & Unsupported (2) & Unknown & \texttt{not-found} \\
+\texttt{PrecisionBenchmarks.recursiveCountdownLeak} & Tail-recursive countdown leak & Leak & Warn & Unsupported (15) & Witness & \texttt{confirmed-leak} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
